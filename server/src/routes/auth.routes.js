@@ -3,6 +3,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
+const requireRole = require('../middleware/role.middleware');
 
 const router = express.Router();
 
@@ -55,8 +56,12 @@ router.post('/login', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
 });
+
 router.get('/me', authMiddleware, (req, res) => {
   res.json({ user: req.user });
 });
 
+router.get('/admin-only', authMiddleware, requireRole('Admin'), (req, res) => {
+  res.json({ message: 'Welcome, Admin! This route is protected by role.' });
+});
 module.exports = router;
