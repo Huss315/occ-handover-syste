@@ -1,0 +1,227 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------------------------------------------------------------------
+// ROLES & USERS
+// ---------------------------------------------------------------------
+
+model Role {
+  id    Int    @id @default(autoincrement())
+  name  String @unique
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  fullName     String   @map("full_name")
+  username     String   @unique
+  email        String?  @unique
+  passwordHash String   @map("password_hash")
+  roleId       Int      @map("role_id")
+  role         Role     @relation(fields: [roleId], references: [id])
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  shiftsStarted    ShiftSession[]    @relation("StartedBy")
+  shiftsEnded      ShiftSession[]    @relation("EndedBy")
+  shiftEmployees   ShiftEmployee[]
+  fixedTasksMade   FixedTask[]
+  sessionTasks     SessionTask[]     @relation("UpdatedBy")
+  temporaryTasks   TemporaryTask[]
+  notes            HandoverNote[]
+  reportsGenerated GeneratedReport[]
+  auditLogs        AuditLog[]
+
+  @@map("users")
+}
+
+// ---------------------------------------------------------------------
+// SHIFTS & SESSIONS
+// ---------------------------------------------------------------------
+
+model Shift {
+  id       Int     @id @default(autoincrement())
+  name     String  @unique
+  isActive Boolean @default(true) @map("is_active")
+
+  fixedTasks     FixedTask[]
+  sessions       ShiftSession[]
+  temporaryTasks TemporaryTask[]
+  notes          HandoverNote[]
+
+  @@map("shifts")
+}
+
+model ShiftSession {
+  id        Int      @id @default(autoincrement())
+  shiftDate DateTime @map("shift_date") @db.Date
+  shiftId   Int      @map("shift_id")
+  shift     Shift    @relation(fields: [shiftId], references: [id])
+
+  startedById Int      @map("started_by")
+  startedBy   User     @relation("StartedBy", fields: [startedById], references: [id])
+  startedAt   DateTime @default(now()) @map("started_at")
+
+  endedById Int?      @map("ended_by")
+  endedBy   User?     @relation("EndedBy", fields: [endedById], references: [id])
+  endedAt   DateTime? @map("ended_at")
+
+  status String @default("Started")
+
+  employees ShiftEmployee[]
+  tasks     SessionTask[]
+  report    GeneratedReport?
+
+  @@unique([shiftDate, shiftId])
+  @@map("shift_sessions")
+}
+
+model ShiftEmployee {
+  id        Int          @id @default(autoincrement())
+  sessionId Int          @map("session_id")
+  session   ShiftSession @relation(fields: [sessionId], references: [id])
+  userId    Int          @map("user_id")
+  user      User         @relation(fields: [userId], references: [id])
+
+  @@unique([sessionId, userId])
+  @@map("shift_employees")
+}
+
+// ---------------------------------------------------------------------
+// TASKS
+// ---------------------------------------------------------------------
+
+model FixedTask {
+  id          Int      @id @default(autoincrement())
+  taskName    String   @map("task_name")
+  description String?
+  shiftId     Int      @map("shift_id")
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById Int      @map("created_by")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  sessionTasks SessionTask[]
+
+  @@map("fixed_tasks")
+}
+
+model TemporaryTask {
+  id            Int      @id @default(autoincrement())
+  taskTitle     String   @map("task_title")
+  description   String?
+  targetDate    DateTime @map("target_date") @db.Date
+  targetShiftId Int      @map("target_shift_id")
+  targetShift   Shift    @relation(fields: [targetShiftId], references: [id])
+  createdById   Int      @map("created_by")
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now()) @map("created_at")
+  isDelivered   Boolean  @default(false) @map("is_delivered")
+
+  sessionTasks SessionTask[]
+
+  @@map("temporary_tasks")
+}
+
+enum TaskType {
+  Fixed
+  CarryForward
+  Temporary
+}
+
+enum TaskStatus {
+  NotDone
+  Running
+  Done
+}
+
+model SessionTask {
+  id        Int          @id @default(autoincrement())
+  sessionId Int          @map("session_id")
+  session   ShiftSession @relation(fields: [sessionId], references: [id])
+
+  fixedTaskId Int?       @map("fixed_task_id")
+  fixedTask   FixedTask? @relation(fields: [fixedTaskId], references: [id])
+
+  tempTaskId Int?           @map("temp_task_id")
+  tempTask   TemporaryTask? @relation(fields: [tempTaskId], references: [id])
+
+  taskTitle String     @map("task_title")
+  taskType  TaskType   @map("task_type")
+  status    TaskStatus @default(NotDone)
+
+  updatedById Int      @map("updated_by")
+  updatedBy   User     @relation("UpdatedBy", fields: [updatedById], references: [id])
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  sourceSessionTaskId Int?          @map("source_session_task_id")
+  sourceSessionTask   SessionTask?  @relation("CarryForward", fields: [sourceSessionTaskId], references: [id])
+  carriedForwardTo    SessionTask[] @relation("CarryForward")
+
+  @@map("session_tasks")
+}
+
+// ---------------------------------------------------------------------
+// NOTES
+// ---------------------------------------------------------------------
+
+model HandoverNote {
+  id            Int      @id @default(autoincrement())
+  noteText      String   @map("note_text")
+  targetDate    DateTime @map("target_date") @db.Date
+  targetShiftId Int      @map("target_shift_id")
+  targetShift   Shift    @relation(fields: [targetShiftId], references: [id])
+  createdById   Int      @map("created_by")
+  createdBy     User     @relation(fields: [createdById], references: [id])
+  createdAt     DateTime @default(now()) @map("created_at")
+  isDelivered   Boolean  @default(false) @map("is_delivered")
+
+  @@map("handover_notes")
+}
+
+// ---------------------------------------------------------------------
+// REPORTS
+// ---------------------------------------------------------------------
+
+model GeneratedReport {
+  id            Int          @id @default(autoincrement())
+  sessionId     Int          @unique @map("session_id")
+  session       ShiftSession @relation(fields: [sessionId], references: [id])
+  reportTitle   String       @map("report_title")
+  generatedAt   DateTime     @default(now()) @map("generated_at")
+  generatedById Int          @map("generated_by")
+  generatedBy   User         @relation(fields: [generatedById], references: [id])
+  emailSent     Boolean      @default(false) @map("email_sent")
+  reportContent String       @map("report_content")
+
+  @@map("generated_reports")
+}
+
+// ---------------------------------------------------------------------
+// AUDIT LOG
+// ---------------------------------------------------------------------
+
+model AuditLog {
+  id             Int      @id @default(autoincrement())
+  userId         Int      @map("user_id")
+  user           User     @relation(fields: [userId], references: [id])
+  actionType     String   @map("action_type")
+  entityName     String   @map("entity_name")
+  entityId       Int?     @map("entity_id")
+  actionDateTime DateTime @default(now()) @map("action_datetime")
+  details        String?
+
+  @@map("audit_logs")
+}
