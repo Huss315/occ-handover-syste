@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const prisma = require('../lib/prisma');
+const authMiddleware = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
@@ -53,6 +54,9 @@ router.post('/login', async (req, res) => {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong. Please try again.' });
   }
+});
+router.get('/me', authMiddleware, (req, res) => {
+  res.json({ user: req.user });
 });
 
 module.exports = router;
