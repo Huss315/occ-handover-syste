@@ -170,11 +170,107 @@ router.post('/start', authMiddleware, async (req, res) => {
       tasks: [...fixedSessionTasks, ...carriedTasks, ...tempSessionTasks],
       dueNotes,
     });
-    
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong starting the shift.' });
   }
 });
+// POST /api/shifts/:sessionId/end
+router.post('/:sessionId/end', authMiddleware, async (req, res) => {
+  try {
+    const sessionId = parseInt(req.params.sessionId, 10);
 
+    const session = await prisma.shiftSession.findUnique({
+      where: { id: sessionId },
+      include: {
+        shift: true,
+        employees: { include: { user: true } },
+        tasks: true,
+      },
+    });
+
+    if (!session) {
+      return res.status(404).json({ error: 'Shift session not found.' });
+    }
+
+    if (session.status === 'Ended') {
+      return res.status(400).json({ error: 'This shift has already ended.' });
+    }
+
+    // Confirm the person ending the shift is one of the shift's employees
+    const isEmployeeOfShift = session.employees.some((e) => e.userId === req.user.userId);
+    if (!isEmployeeOfShift) {
+      return res.status(403).json({ error: 'Only employees in this shift can end it.' });
+    }
+
+    // Mark session as Ended
+    const endedSession = await prisma.shiftSession.update({
+      where: { id: sessionId },
+      data: {
+        status: 'Ended',
+        endedById: req.user.userId,
+        endedAt: new Date(),
+      },
+    });
+
+    // Get any notes that were delivered to this session's date+shift
+    const notesForThisShift = await prisma.handoverNote.findMany({
+      where: {
+        targetDate: session.shiftDate,
+        targetShiftId: session.shiftId,
+      },
+    });
+
+    // Build the report content (simple readable text snapshot)
+    const doneTasks = session.tasks.filter((t) => t.status === 'Done');
+    const runningTasks = session.tasks.filter((t) => t.status === 'Running');
+    const notDoneTasks = session.tasks.filter((t) => t.status === 'NotDone');
+
+    const reportContent = `
+OCC Shift Handover Report
+Shift: ${session.shift.name}
+Date: ${session.shiftDate.toISOString().split('T')[0]}
+Employees: ${session.employees.map((e) => e.user.fullName).join(', ')}
+
+DONE TASKS:
+${doneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+
+RUNNING TASKS:
+${runningTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+
+NOT DONE TASKS:
+${notDoneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+
+NOTES:
+${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
+    `.trim();
+
+    const report = await prisma.generatedReport.create({
+      data: {
+        sessionId: session.id,
+        reportTitle: `OCC Handover Report - ${session.shift.name} Shift - ${session.shiftDate.toISOString().split('T')[0]}`,
+        generatedById: req.user.userId,
+        reportContent,
+        emailSent: false,
+      },
+    });
+
+    // Audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'EndShift',
+        entityName: 'ShiftSession',
+        entityId: session.id,
+        details: 'Shift ended and report generated.',
+      },
+    });
+
+    res.json({ session: endedSession, report });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong ending the shift.' });
+  }
+});
 module.exports = router;
