@@ -55,7 +55,44 @@ async function main() {
       isActive: true,
     },
   });
+  // 4. Create sample Fixed Tasks for the Morning shift
+  const morningShift = await prisma.shift.findUnique({ where: { name: 'Morning' } });
 
+  await prisma.fixedTask.upsert({
+    where: { id: 1 },
+    update: {},
+    create: {
+      taskName: 'Check Alerts',
+      description: 'Review overnight system alerts',
+      shiftId: morningShift.id,
+      isActive: true,
+      createdById: 1,
+    },
+  });
+
+  await prisma.fixedTask.upsert({
+    where: { id: 2 },
+    update: {},
+    create: {
+      taskName: 'Monitor UAE Batch',
+      description: 'Check UAE batch processing status',
+      shiftId: morningShift.id,
+      isActive: true,
+      createdById: 1,
+    },
+  });
+
+  await prisma.fixedTask.upsert({
+    where: { id: 3 },
+    update: {},
+    create: {
+      taskName: 'Verify Settlement Reports',
+      description: 'Confirm settlement reports generated correctly',
+      shiftId: morningShift.id,
+      isActive: true,
+      createdById: 1,
+    },
+  });
   console.log('✅ Seed data created: 3 roles, 3 shifts, 1 admin user');
 }
 
