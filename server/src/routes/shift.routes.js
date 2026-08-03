@@ -48,8 +48,8 @@ router.post('/start', authMiddleware, async (req, res) => {
       return res.status(400).json({ error: 'shiftId and at least one employeeId are required.' });
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now = new Date();
+    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
     // Prevent duplicate active session for same date + shift
     const existing = await prisma.shiftSession.findFirst({
@@ -98,6 +98,45 @@ router.post('/start', authMiddleware, async (req, res) => {
         })
       )
     );
+    // Load due Notes for this date + shift, mark them delivered
+    const dueNotes = await prisma.handoverNote.findMany({
+      where: {
+        targetDate: today,
+        targetShiftId: shiftId,
+        isDelivered: false,
+      },
+    });
+    await prisma.handoverNote.updateMany({
+      where: { id: { in: dueNotes.map((n) => n.id) } },
+      data: { isDelivered: true },
+    });
+
+    // Load due Temporary Tasks for this date + shift, mark them delivered, add as SessionTasks
+    const dueTempTasks = await prisma.temporaryTask.findMany({
+      where: {
+        targetDate: today,
+        targetShiftId: shiftId,
+        isDelivered: false,
+      },
+    });
+    const tempSessionTasks = await Promise.all(
+      dueTempTasks.map((tempTask) =>
+        prisma.sessionTask.create({
+          data: {
+            sessionId: session.id,
+            tempTaskId: tempTask.id,
+            taskTitle: tempTask.taskTitle,
+            taskType: 'Temporary',
+            status: 'NotDone',
+            updatedById: req.user.userId,
+          },
+        })
+      )
+    );
+    await prisma.temporaryTask.updateMany({
+      where: { id: { in: dueTempTasks.map((t) => t.id) } },
+      data: { isDelivered: true },
+    });
 
     // Find previous ended session's carry-forward tasks (Running/Not Done)
     const lastSession = await prisma.shiftSession.findFirst({
@@ -128,8 +167,10 @@ router.post('/start', authMiddleware, async (req, res) => {
 
     res.status(201).json({
       session,
-      tasks: [...fixedSessionTasks, ...carriedTasks],
+      tasks: [...fixedSessionTasks, ...carriedTasks, ...tempSessionTasks],
+      dueNotes,
     });
+    
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong starting the shift.' });
