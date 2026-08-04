@@ -64,4 +64,20 @@ router.get('/me', authMiddleware, (req, res) => {
 router.get('/admin-only', authMiddleware, requireRole('Admin'), (req, res) => {
   res.json({ message: 'Welcome, Admin! This route is protected by role.' });
 });
+
+// GET /api/auth/employees — any active user, for employee-selection dropdowns
+router.get('/employees', authMiddleware, async (req, res) => {
+  try {
+    const employees = await prisma.user.findMany({
+      where: { isActive: true },
+      select: { id: true, fullName: true, username: true },
+      orderBy: { fullName: 'asc' },
+    });
+    res.json({ employees });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong fetching employees.' });
+  }
+});
+
 module.exports = router;

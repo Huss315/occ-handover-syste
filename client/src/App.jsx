@@ -1,14 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
+import ShiftStartPage from './pages/ShiftStartPage';
+import DashboardPage from './pages/DashboardPage';
 
-// Placeholder pages for now — we'll build these out in upcoming steps
-function ShiftStartPage() {
-  return <div>Shift Start Page (coming soon)</div>;
-}
-function DashboardPage() {
-  return <div>Dashboard Page (coming soon)</div>;
-}
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
