@@ -5,7 +5,7 @@ import ShiftStartPage from './pages/ShiftStartPage';
 import DashboardPage from './pages/DashboardPage';
 import AddNotePage from './pages/AddNotePage';
 import AddTempTaskPage from './pages/AddTempTaskPage';
-
+import HistoricalSearchPage from './pages/HistoricalSearchPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -47,6 +47,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AddTempTaskPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/reports"
+        element={
+          <ProtectedRoute>
+            <HistoricalSearchPage />
           </ProtectedRoute>
         }
       />

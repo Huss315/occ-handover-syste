@@ -41,3 +41,7 @@ export async function createTempTask(taskTitle, description, targetDate, targetS
   const res = await apiClient.post('/temp-tasks', { taskTitle, description, targetDate, targetShiftId });
   return res.data.tempTask;
 }
+export async function searchReport(date, shiftId) {
+  const res = await apiClient.get(`/reports/search?date=${date}&shiftId=${shiftId}`);
+  return res.data;
+}

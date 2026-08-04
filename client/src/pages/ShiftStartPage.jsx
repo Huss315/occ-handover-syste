@@ -67,8 +67,11 @@ function ShiftStartPage() {
     <div style={{ maxWidth: 600, margin: '40px auto', fontFamily: 'sans-serif' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Welcome, {user?.fullName}</h1>
-        <button onClick={logout}>Logout</button>
-      </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => navigate('/reports')}>Historical Reports</button>
+          <button onClick={logout}>Logout</button>
+        </div>
+            </div>
       <p>Today's Date: {today}</p>
 
       <div style={{ marginTop: 24 }}>
