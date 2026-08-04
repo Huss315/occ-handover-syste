@@ -1,37 +1,36 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getShiftsList, getEmployeesList, getPreviousShift, startShift } from '../api/shifts';
+import { getShiftsList, getPreviousShift, startShift } from '../api/shifts';
+
+function statusLed(status) {
+  if (status === 'Done') return 'led-done';
+  if (status === 'Running') return 'led-running';
+  return 'led-notdone';
+}
 
 function ShiftStartPage() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
 
   const [shifts, setShifts] = useState([]);
-  const [employees, setEmployees] = useState([]);
   const [selectedShiftId, setSelectedShiftId] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [previousShift, setPreviousShift] = useState(null);
   const [error, setError] = useState('');
-  const [submitting, setSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
     async function loadData() {
       try {
-        const [shiftsData, employeesData, previousData] = await Promise.all([
+        const [shiftsData, previousData] = await Promise.all([
           getShiftsList(),
-          getEmployeesList(),
           getPreviousShift(),
         ]);
         setShifts(shiftsData);
-        setEmployees(employeesData);
         setPreviousShift(previousData);
-
-        // Auto-select the logged-in user as an employee by default
-        if (user?.id) {
-          setSelectedEmployeeIds([user.id]);
-        }
+        if (user?.id) setSelectedEmployeeIds([user.id]);
       } catch (err) {
         setError('Failed to load shift data.');
       } finally {
@@ -40,8 +39,6 @@ function ShiftStartPage() {
     }
     loadData();
   }, []);
-
-
 
   async function handleStartShift() {
     setError('');
@@ -59,27 +56,29 @@ function ShiftStartPage() {
     }
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
+  if (loading) return <div className="page"><p>Loading...</p></div>;
 
   const today = new Date().toLocaleDateString();
 
   return (
-    <div style={{ maxWidth: 600, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>Welcome, {user?.fullName}</h1>
-          <div style={{ display: 'flex', gap: 8 }}>
-          {user?.role === 'Admin' && (
-            <button onClick={() => navigate('/admin')}>Admin Dashboard</button>
-          )}
-          <button onClick={() => navigate('/reports')}>Historical Reports</button>
-          <button onClick={logout}>Logout</button>
+    <div className="page">
+      <div className="page-header">
+        <div>
+          <h1>Welcome, {user?.fullName}</h1>
+          <p className="readout">{today}</p>
         </div>
-            </div>
-      <p>Today's Date: {today}</p>
+        <div className="header-actions">
+          {user?.role === 'Admin' && (
+            <button className="btn-ghost" onClick={() => navigate('/admin')}>Admin Dashboard</button>
+          )}
+          <button className="btn-ghost" onClick={() => navigate('/reports')}>Historical Reports</button>
+          <button className="btn-ghost" onClick={logout}>Logout</button>
+        </div>
+      </div>
 
-      <div style={{ marginTop: 24 }}>
-        <label>Select Shift:</label><br />
-        <select value={selectedShiftId} onChange={(e) => setSelectedShiftId(e.target.value)} style={{ padding: 8, width: '100%' }}>
+      <div className="card">
+        <h3>Select Shift</h3>
+        <select value={selectedShiftId} onChange={(e) => setSelectedShiftId(e.target.value)}>
           <option value="">-- Choose a shift --</option>
           {shifts.map((s) => (
             <option key={s.id} value={s.id}>{s.name}</option>
@@ -87,33 +86,32 @@ function ShiftStartPage() {
         </select>
       </div>
 
-      <div style={{ marginTop: 16 }}>
-        <label>Employee:</label>
-        <div style={{ border: '1px solid #ccc', padding: 8, background: '#f5f5f5' }}>
-          {user?.fullName} ({user?.username})
-        </div>
-      </div>
-
-      <div style={{ marginTop: 24, border: '1px solid #ddd', padding: 12 }}>
+      <div className="card">
         <h3>Previous Shift Summary</h3>
         {previousShift?.previousSession ? (
           <>
-            <p>{previousShift.previousSession.shiftName} — {new Date(previousShift.previousSession.shiftDate).toLocaleDateString()}</p>
-            <ul>
-              {previousShift.carryForwardTasks.map((t) => (
-                <li key={t.id}>{t.taskTitle} — {t.status}</li>
-              ))}
-              {previousShift.carryForwardTasks.length === 0 && <li>No carry-forward tasks.</li>}
-            </ul>
+            <p className="readout">
+              {previousShift.previousSession.shiftName} — {new Date(previousShift.previousSession.shiftDate).toLocaleDateString()}
+            </p>
+            {previousShift.carryForwardTasks.length === 0 && <p>No carry-forward tasks.</p>}
+            {previousShift.carryForwardTasks.map((t) => (
+              <div className="status-row" key={t.id}>
+                <div className="status-label">
+                  <span className={`led ${statusLed(t.status)}`}></span>
+                  <span className="status-title">{t.taskTitle}</span>
+                </div>
+                <span className="readout">{t.status}</span>
+              </div>
+            ))}
           </>
         ) : (
           <p>No previous shift data available.</p>
         )}
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
-      <button onClick={handleStartShift} disabled={submitting} style={{ marginTop: 24, padding: 12, fontSize: 16, width: '100%', cursor: submitting ? 'not-allowed' : 'pointer', opacity: submitting ? 0.6 : 1 }}>
+      <button className="btn-primary btn-full" onClick={handleStartShift} disabled={submitting}>
         {submitting ? 'Starting...' : 'Start Shift'}
       </button>
     </div>

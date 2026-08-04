@@ -36,40 +36,36 @@ function AddNotePage() {
   }
 
   return (
-    <div style={{ maxWidth: 500, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <h1>Add Note for Future Shift</h1>
-      <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <label>Target Date:</label>
-        <input
-        type="date"
-        value={targetDate}
-        min={new Date().toISOString().split('T')[0]}
-        onChange={(e) => setTargetDate(e.target.value)}
-        style={{ padding: 8 }}
-        />
-        <label>Target Shift:</label>
-        <select value={targetShiftId} onChange={(e) => setTargetShiftId(e.target.value)} style={{ padding: 8 }}>
-          <option value="">-- Choose a shift --</option>
-          {shifts.map((s) => (
-            <option key={s.id} value={s.id}>{s.name}</option>
-          ))}
-        </select>
+    <div className="page" style={{ maxWidth: 460 }}>
+      <div className="page-header">
+        <h1>Add Note</h1>
+      </div>
+      <form onSubmit={handleSave}>
+        <div className="field">
+          <label>Target Date</label>
+          <input type="date" value={targetDate} min={new Date().toISOString().split('T')[0]} onChange={(e) => setTargetDate(e.target.value)} />
+        </div>
+        <div className="field">
+          <label>Target Shift</label>
+          <select value={targetShiftId} onChange={(e) => setTargetShiftId(e.target.value)}>
+            <option value="">-- Choose a shift --</option>
+            {shifts.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="field">
+          <label>Note</label>
+          <textarea value={noteText} onChange={(e) => setNoteText(e.target.value)} rows={4} />
+        </div>
 
-        <label>Note:</label>
-        <textarea
-          value={noteText}
-          onChange={(e) => setNoteText(e.target.value)}
-          rows={4}
-          style={{ padding: 8 }}
-        />
+        {error && <p className="error-text">{error}</p>}
 
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button type="submit" disabled={saving} style={{ padding: 10, flex: 1 }}>
+        <div className="btn-row">
+          <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
             {saving ? 'Saving...' : 'Save'}
           </button>
-          <button type="button" onClick={() => navigate('/dashboard', { state: { sessionId } })} style={{ padding: 10, flex: 1 }}>
+          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate('/dashboard', { state: { sessionId } })}>
             Cancel
           </button>
         </div>

@@ -12,16 +12,14 @@ function AdminDashboardPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
 
-  const [view, setView] = useState('menu'); // menu | users | tasks
+  const [view, setView] = useState('menu');
   const [users, setUsers] = useState([]);
   const [fixedTasks, setFixedTasks] = useState([]);
   const [shifts, setShifts] = useState([]);
   const [toast, setToast] = useState(null);
   const [error, setError] = useState('');
 
-  // New user form
   const [newUser, setNewUser] = useState({ fullName: '', username: '', email: '', password: '', roleName: 'User' });
-  // New fixed task form
   const [newTask, setNewTask] = useState({ taskName: '', description: '', shiftId: '' });
 
   useEffect(() => {
@@ -29,21 +27,13 @@ function AdminDashboardPage() {
   }, []);
 
   async function loadUsers() {
-    try {
-      setUsers(await getUsers());
-      setView('users');
-    } catch (err) {
-      setError('Failed to load users.');
-    }
+    try { setUsers(await getUsers()); setView('users'); }
+    catch { setError('Failed to load users.'); }
   }
 
   async function loadTasks() {
-    try {
-      setFixedTasks(await getFixedTasks());
-      setView('tasks');
-    } catch (err) {
-      setError('Failed to load fixed tasks.');
-    }
+    try { setFixedTasks(await getFixedTasks()); setView('tasks'); }
+    catch { setError('Failed to load fixed tasks.'); }
   }
 
   async function handleCreateUser(e) {
@@ -60,13 +50,8 @@ function AdminDashboardPage() {
   }
 
   async function handleDeactivateUser(id) {
-    try {
-      await deactivateUser(id);
-      setToast({ message: 'User deactivated.', type: 'success' });
-      loadUsers();
-    } catch (err) {
-      setError('Failed to deactivate user.');
-    }
+    try { await deactivateUser(id); setToast({ message: 'User deactivated.', type: 'success' }); loadUsers(); }
+    catch { setError('Failed to deactivate user.'); }
   }
 
   async function handleCreateTask(e) {
@@ -83,90 +68,97 @@ function AdminDashboardPage() {
   }
 
   async function handleDeactivateTask(id) {
-    try {
-      await deactivateFixedTask(id);
-      setToast({ message: 'Fixed task deactivated.', type: 'success' });
-      loadTasks();
-    } catch (err) {
-      setError('Failed to deactivate fixed task.');
-    }
+    try { await deactivateFixedTask(id); setToast({ message: 'Fixed task deactivated.', type: 'success' }); loadTasks(); }
+    catch { setError('Failed to deactivate fixed task.'); }
   }
 
   return (
-    <div style={{ maxWidth: 700, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="page">
+      <div className="page-header">
         <h1>Admin Dashboard</h1>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <button onClick={() => navigate('/shift-start')}>Back to Shift Start</button>
-          <button onClick={logout}>Logout</button>
+        <div className="header-actions">
+          <button className="btn-ghost" onClick={() => navigate('/shift-start')}>Back to Shift Start</button>
+          <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
       {view === 'menu' && (
-        <div style={{ display: 'flex', gap: 12, marginTop: 24 }}>
-          <button onClick={loadUsers} style={{ padding: 16, flex: 1 }}>Manage Users</button>
-          <button onClick={loadTasks} style={{ padding: 16, flex: 1 }}>Manage Fixed Tasks</button>
-          <button onClick={() => navigate('/reports')} style={{ padding: 16, flex: 1 }}>View Reports</button>
+        <div className="menu-grid">
+          <button className="btn-primary" style={{ padding: 20 }} onClick={loadUsers}>Manage Users</button>
+          <button className="btn-primary" style={{ padding: 20 }} onClick={loadTasks}>Manage Fixed Tasks</button>
+          <button className="btn-primary" style={{ padding: 20 }} onClick={() => navigate('/reports')}>View Reports</button>
         </div>
       )}
 
       {view === 'users' && (
-        <div style={{ marginTop: 24 }}>
-          <button onClick={() => setView('menu')}>← Back</button>
-          <h3>Create New User</h3>
-          <form onSubmit={handleCreateUser} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 350 }}>
-            <input placeholder="Full Name" value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} style={{ padding: 8 }} />
-            <input placeholder="Username" value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} style={{ padding: 8 }} />
-            <input placeholder="Email" value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} style={{ padding: 8 }} />
-            <input placeholder="Password" type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} style={{ padding: 8 }} />
-            <select value={newUser.roleName} onChange={(e) => setNewUser({ ...newUser, roleName: e.target.value })} style={{ padding: 8 }}>
-              <option value="User">User</option>
-              <option value="Manager">Manager</option>
-              <option value="Admin">Admin</option>
-            </select>
-            <button type="submit" style={{ padding: 10 }}>Create User</button>
-          </form>
+        <>
+          <button className="btn-ghost" style={{ marginBottom: 16 }} onClick={() => setView('menu')}>← Back</button>
 
-          <h3 style={{ marginTop: 24 }}>All Users</h3>
-          {users.map((u) => (
-            <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-              <span>{u.fullName} ({u.username}) — {u.role.name} {!u.isActive && '(Inactive)'}</span>
-              {u.isActive && (
-                <button onClick={() => handleDeactivateUser(u.id)} style={{ color: '#c0392b' }}>Deactivate</button>
-              )}
-            </div>
-          ))}
-        </div>
+          <div className="card">
+            <h3>Create New User</h3>
+            <form onSubmit={handleCreateUser}>
+              <div className="field"><label>Full Name</label><input value={newUser.fullName} onChange={(e) => setNewUser({ ...newUser, fullName: e.target.value })} /></div>
+              <div className="field"><label>Username</label><input value={newUser.username} onChange={(e) => setNewUser({ ...newUser, username: e.target.value })} /></div>
+              <div className="field"><label>Email</label><input value={newUser.email} onChange={(e) => setNewUser({ ...newUser, email: e.target.value })} /></div>
+              <div className="field"><label>Password</label><input type="password" value={newUser.password} onChange={(e) => setNewUser({ ...newUser, password: e.target.value })} /></div>
+              <div className="field">
+                <label>Role</label>
+                <select value={newUser.roleName} onChange={(e) => setNewUser({ ...newUser, roleName: e.target.value })}>
+                  <option value="User">User</option>
+                  <option value="Manager">Manager</option>
+                  <option value="Admin">Admin</option>
+                </select>
+              </div>
+              <button type="submit" className="btn-primary btn-full">Create User</button>
+            </form>
+          </div>
+
+          <div className="card">
+            <h3>All Users</h3>
+            {users.map((u) => (
+              <div className="list-row" key={u.id}>
+                <span>{u.fullName} <span className="readout">({u.username}) · {u.role.name}</span> {!u.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
+                {u.isActive && <button className="btn-danger" onClick={() => handleDeactivateUser(u.id)}>Deactivate</button>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {view === 'tasks' && (
-        <div style={{ marginTop: 24 }}>
-          <button onClick={() => setView('menu')}>← Back</button>
-          <h3>Create New Fixed Task</h3>
-          <form onSubmit={handleCreateTask} style={{ display: 'flex', flexDirection: 'column', gap: 8, maxWidth: 350 }}>
-            <input placeholder="Task Name" value={newTask.taskName} onChange={(e) => setNewTask({ ...newTask, taskName: e.target.value })} style={{ padding: 8 }} />
-            <textarea placeholder="Description" value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} style={{ padding: 8 }} />
-            <select value={newTask.shiftId} onChange={(e) => setNewTask({ ...newTask, shiftId: e.target.value })} style={{ padding: 8 }}>
-              <option value="">-- Choose Shift --</option>
-              {shifts.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <button type="submit" style={{ padding: 10 }}>Create Fixed Task</button>
-          </form>
+        <>
+          <button className="btn-ghost" style={{ marginBottom: 16 }} onClick={() => setView('menu')}>← Back</button>
 
-          <h3 style={{ marginTop: 24 }}>All Fixed Tasks</h3>
-          {fixedTasks.map((t) => (
-            <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-              <span>{t.taskName} — {t.shift.name} {!t.isActive && '(Inactive)'}</span>
-              {t.isActive && (
-                <button onClick={() => handleDeactivateTask(t.id)} style={{ color: '#c0392b' }}>Deactivate</button>
-              )}
-            </div>
-          ))}
-        </div>
+          <div className="card">
+            <h3>Create New Fixed Task</h3>
+            <form onSubmit={handleCreateTask}>
+              <div className="field"><label>Task Name</label><input value={newTask.taskName} onChange={(e) => setNewTask({ ...newTask, taskName: e.target.value })} /></div>
+              <div className="field"><label>Description</label><textarea value={newTask.description} onChange={(e) => setNewTask({ ...newTask, description: e.target.value })} /></div>
+              <div className="field">
+                <label>Shift</label>
+                <select value={newTask.shiftId} onChange={(e) => setNewTask({ ...newTask, shiftId: e.target.value })}>
+                  <option value="">-- Choose Shift --</option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" className="btn-primary btn-full">Create Fixed Task</button>
+            </form>
+          </div>
+
+          <div className="card">
+            <h3>All Fixed Tasks</h3>
+            {fixedTasks.map((t) => (
+              <div className="list-row" key={t.id}>
+                <span>{t.taskName} <span className="readout">· {t.shift.name}</span> {!t.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
+                {t.isActive && <button className="btn-danger" onClick={() => handleDeactivateTask(t.id)}>Deactivate</button>}
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

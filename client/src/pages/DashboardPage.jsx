@@ -2,23 +2,25 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { updateTaskStatus, endShift, getSession } from '../api/shifts';
-import apiClient from '../api/client';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 
+function statusLed(status) {
+  if (status === 'Done') return 'led-done';
+  if (status === 'Running') return 'led-running';
+  return 'led-notdone';
+}
+
 function DashboardPage() {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  // sessionId is passed via navigation state from ShiftStartPage
   const [sessionId] = useState(location.state?.sessionId || null);
-  const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
-  const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');  
-    const [ending, setEnding] = useState(false);
+  const [error, setError] = useState('');
+  const [ending, setEnding] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [toast, setToast] = useState(null);
 
@@ -31,10 +33,9 @@ function DashboardPage() {
     loadSessionData();
   }, [sessionId]);
 
- async function loadSessionData() {
+  async function loadSessionData() {
     try {
       const sessionData = await getSession(sessionId);
-      setSession(sessionData);
       setTasks(sessionData.tasks);
       setLoading(false);
     } catch (err) {
@@ -69,34 +70,42 @@ function DashboardPage() {
     }
   }
 
-  if (loading) return <div style={{ padding: 40 }}>Loading...</div>;
+  if (loading) return <div className="page"><p>Loading...</p></div>;
 
   return (
-    <div style={{ maxWidth: 700, margin: '40px auto', fontFamily: 'sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1>OCC Handover — Shift Dashboard</h1>
-        <button onClick={logout}>Logout</button>
+    <div className="page">
+      <div className="page-header">
+        <h1>Shift Dashboard</h1>
+        <button className="btn-ghost" onClick={logout}>Logout</button>
       </div>
 
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {error && <p className="error-text">{error}</p>}
 
       {!sessionId && (
-        <button onClick={() => navigate('/shift-start')} style={{ padding: 10, marginTop: 16 }}>
-          Go to Shift Start
-        </button>
+        <button className="btn-primary" onClick={() => navigate('/shift-start')}>Go to Shift Start</button>
       )}
 
       {sessionId && (
         <>
-          <p>Session ID: {sessionId}</p>
+          <p className="readout">Session #{sessionId}</p>
 
-          <div style={{ marginTop: 24 }}>
+          <div className="card">
             <h3>Tasks</h3>
-            {tasks.length === 0 && <p>No tasks loaded yet — this page will show real task data shortly.</p>}
+            {tasks.length === 0 && <p>No tasks for this shift.</p>}
             {tasks.map((task) => (
-              <div key={task.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #eee' }}>
-                <span>{task.taskTitle} <em>({task.taskType})</em></span>
-                <select value={task.status} onChange={(e) => handleStatusChange(task.id, e.target.value)}>
+              <div className="status-row" key={task.id}>
+                <div className="status-label">
+                  <span className={`led ${statusLed(task.status)}`}></span>
+                  <div>
+                    <div className="status-title">{task.taskTitle}</div>
+                    <div className="status-type">{task.taskType}</div>
+                  </div>
+                </div>
+                <select
+                  className="status-select"
+                  value={task.status}
+                  onChange={(e) => handleStatusChange(task.id, e.target.value)}
+                >
                   <option value="NotDone">Not Done</option>
                   <option value="Running">Running</option>
                   <option value="Done">Done</option>
@@ -105,14 +114,14 @@ function DashboardPage() {
             ))}
           </div>
 
-          <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
-            <button onClick={() => navigate('/add-note', { state: { sessionId } })}>Add Note</button>
-            <button onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>Add Temp Task</button>
-            <button onClick={handleEndShiftClick} disabled={ending} style={{ marginLeft: 'auto', background: '#c0392b', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>
+          <div className="btn-row" style={{ marginTop: 24 }}>
+            <button className="btn-ghost" onClick={() => navigate('/add-note', { state: { sessionId } })}>Add Note</button>
+            <button className="btn-ghost" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>Add Temp Task</button>
+            <button className="btn-danger" style={{ marginLeft: 'auto' }} onClick={handleEndShiftClick} disabled={ending}>
               {ending ? 'Ending...' : 'End Shift'}
             </button>
           </div>
-      </>
+        </>
       )}
 
       {showEndConfirm && (
@@ -126,13 +135,7 @@ function DashboardPage() {
         />
       )}
 
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   );
 }

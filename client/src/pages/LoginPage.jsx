@@ -21,28 +21,23 @@ function LoginPage() {
   }
 
   return (
-    <div style={{ maxWidth: 400, margin: '80px auto', fontFamily: 'sans-serif' }}>
-      <h1 style={{ textAlign: 'center' }}>OCC Handover System</h1>
-      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-        <input
-          type="text"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          style={{ padding: 8, fontSize: 16 }}
-        />
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ padding: 8, fontSize: 16 }}
-        />
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        <button type="submit" style={{ padding: 10, fontSize: 16, cursor: 'pointer' }}>
-          Sign In
-        </button>
-      </form>
+    <div className="auth-shell">
+      <div className="auth-card">
+        <div className="brand">OCC / NOC</div>
+        <h1>Handover System</h1>
+        <form onSubmit={handleSubmit}>
+          <div className="field">
+            <label>Username</label>
+            <input type="text" value={username} onChange={(e) => setUsername(e.target.value)} autoFocus />
+          </div>
+          <div className="field">
+            <label>Password</label>
+            <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          {error && <p className="error-text">{error}</p>}
+          <button type="submit" className="btn-primary btn-full">Sign In</button>
+        </form>
+      </div>
     </div>
   );
 }
