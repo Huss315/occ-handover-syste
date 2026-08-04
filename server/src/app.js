@@ -6,6 +6,7 @@ const taskRoutes = require('./routes/task.routes');
 const noteRoutes = require('./routes/note.routes');
 const tempTaskRoutes = require('./routes/tempTask.routes');
 const adminRoutes = require('./routes/admin.routes');
+const reportRoutes = require('./routes/report.routes');
 
 const app = express();
 
@@ -22,5 +23,6 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/temp-tasks', tempTaskRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/reports', reportRoutes);
 
 module.exports = app;
