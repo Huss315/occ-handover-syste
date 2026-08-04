@@ -40,8 +40,13 @@ function AddNotePage() {
       <h1>Add Note for Future Shift</h1>
       <form onSubmit={handleSave} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
         <label>Target Date:</label>
-        <input type="date" value={targetDate} onChange={(e) => setTargetDate(e.target.value)} style={{ padding: 8 }} />
-
+        <input
+        type="date"
+        value={targetDate}
+        min={new Date().toISOString().split('T')[0]}
+        onChange={(e) => setTargetDate(e.target.value)}
+        style={{ padding: 8 }}
+        />
         <label>Target Shift:</label>
         <select value={targetShiftId} onChange={(e) => setTargetShiftId(e.target.value)} style={{ padding: 8 }}>
           <option value="">-- Choose a shift --</option>

@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { updateTaskStatus, endShift, getSession } from '../api/shifts';
 import apiClient from '../api/client';
+import ConfirmModal from '../components/ConfirmModal';
+import Toast from '../components/Toast';
 
 function DashboardPage() {
   const { user, logout } = useAuth();
@@ -15,8 +17,10 @@ function DashboardPage() {
   const [tasks, setTasks] = useState([]);
   const [notes, setNotes] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [ending, setEnding] = useState(false);
+  const [error, setError] = useState('');  
+    const [ending, setEnding] = useState(false);
+  const [showEndConfirm, setShowEndConfirm] = useState(false);
+  const [toast, setToast] = useState(null);
 
   useEffect(() => {
     if (!sessionId) {
@@ -48,13 +52,17 @@ function DashboardPage() {
     }
   }
 
-  async function handleEndShift() {
-    if (!window.confirm('Are you sure you want to end this shift?')) return;
+  function handleEndShiftClick() {
+    setShowEndConfirm(true);
+  }
+
+  async function confirmEndShift() {
+    setShowEndConfirm(false);
     setEnding(true);
     try {
       await endShift(sessionId);
-      alert('Shift ended and report sent successfully.');
-      navigate('/shift-start');
+      setToast({ message: 'Shift ended and report sent successfully.', type: 'success' });
+      setTimeout(() => navigate('/shift-start'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to end shift.');
       setEnding(false);
@@ -100,11 +108,30 @@ function DashboardPage() {
           <div style={{ marginTop: 32, display: 'flex', gap: 12 }}>
             <button onClick={() => navigate('/add-note', { state: { sessionId } })}>Add Note</button>
             <button onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>Add Temp Task</button>
-            <button onClick={handleEndShift} disabled={ending} style={{ marginLeft: 'auto', background: '#c0392b', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>
+            <button onClick={handleEndShiftClick} disabled={ending} style={{ marginLeft: 'auto', background: '#c0392b', color: 'white', border: 'none', padding: '8px 16px', cursor: 'pointer' }}>
               {ending ? 'Ending...' : 'End Shift'}
             </button>
           </div>
-        </>
+      </>
+      )}
+
+      {showEndConfirm && (
+        <ConfirmModal
+          title="Confirm End Shift"
+          message="Are you sure you want to end this shift?"
+          confirmLabel="Yes, End Shift"
+          cancelLabel="No"
+          onConfirm={confirmEndShift}
+          onCancel={() => setShowEndConfirm(false)}
+        />
+      )}
+
+      {toast && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
     </div>
   );

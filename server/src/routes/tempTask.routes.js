@@ -10,8 +10,16 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { taskTitle, description, targetDate, targetShiftId } = req.body;
 
-    if (!taskTitle || !targetDate || !targetShiftId) {
+   if (!taskTitle || !targetDate || !targetShiftId) {
       return res.status(400).json({ error: 'taskTitle, targetDate, and targetShiftId are required.' });
+    }
+
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const parsedTargetDate = new Date(targetDate);
+
+    if (parsedTargetDate < todayUTC) {
+      return res.status(400).json({ error: 'Target date must be today or in the future.' });
     }
 
     const tempTask = await prisma.temporaryTask.create({

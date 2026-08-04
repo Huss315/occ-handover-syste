@@ -10,10 +10,17 @@ router.post('/', authMiddleware, async (req, res) => {
   try {
     const { noteText, targetDate, targetShiftId } = req.body;
 
-    if (!noteText || !targetDate || !targetShiftId) {
+   if (!noteText || !targetDate || !targetShiftId) {
       return res.status(400).json({ error: 'noteText, targetDate, and targetShiftId are required.' });
     }
 
+    const now = new Date();
+    const todayUTC = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const parsedTargetDate = new Date(targetDate);
+
+    if (parsedTargetDate < todayUTC) {
+      return res.status(400).json({ error: 'Target date must be today or in the future.' });
+    }
     const note = await prisma.handoverNote.create({
       data: {
         noteText,
