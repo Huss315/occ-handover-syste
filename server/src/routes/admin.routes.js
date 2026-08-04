@@ -146,5 +146,116 @@ router.patch('/users/:id/deactivate', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deactivating the user.' });
   }
 });
+// POST /api/admin/fixed-tasks
+// Body: { taskName, description, shiftId }
+router.post('/fixed-tasks', async (req, res) => {
+  try {
+    const { taskName, description, shiftId } = req.body;
 
+    if (!taskName || !shiftId) {
+      return res.status(400).json({ error: 'taskName and shiftId are required.' });
+    }
+
+    const newTask = await prisma.fixedTask.create({
+      data: {
+        taskName,
+        description: description || null,
+        shiftId,
+        isActive: true,
+        createdById: req.user.userId,
+      },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'Create',
+        entityName: 'FixedTask',
+        entityId: newTask.id,
+        details: `Created fixed task "${taskName}"`,
+      },
+    });
+
+    res.status(201).json({ fixedTask: newTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong creating the fixed task.' });
+  }
+});
+
+// GET /api/admin/fixed-tasks
+router.get('/fixed-tasks', async (req, res) => {
+  try {
+    const tasks = await prisma.fixedTask.findMany({
+      include: { shift: true },
+      orderBy: { taskName: 'asc' },
+    });
+    res.json({ fixedTasks: tasks });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong fetching fixed tasks.' });
+  }
+});
+
+// PATCH /api/admin/fixed-tasks/:id
+// Body: any of { taskName, description, shiftId, isActive }
+router.patch('/fixed-tasks/:id', async (req, res) => {
+  try {
+    const taskId = parseInt(req.params.id, 10);
+    const { taskName, description, shiftId, isActive } = req.body;
+
+    const data = {};
+    if (taskName !== undefined) data.taskName = taskName;
+    if (description !== undefined) data.description = description;
+    if (shiftId !== undefined) data.shiftId = shiftId;
+    if (isActive !== undefined) data.isActive = isActive;
+
+    const updatedTask = await prisma.fixedTask.update({
+      where: { id: taskId },
+      data,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'AdminChange',
+        entityName: 'FixedTask',
+        entityId: taskId,
+        details: `Updated fixed task fields: ${Object.keys(data).join(', ')}`,
+      },
+    });
+
+    res.json({ fixedTask: updatedTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong updating the fixed task.' });
+  }
+});
+
+// PATCH /api/admin/fixed-tasks/:id/deactivate
+router.patch('/fixed-tasks/:id/deactivate', async (req, res) => {
+  try {
+    const taskId = parseInt(req.params.id, 10);
+
+    const updatedTask = await prisma.fixedTask.update({
+      where: { id: taskId },
+      data: { isActive: false },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'AdminChange',
+        entityName: 'FixedTask',
+        entityId: taskId,
+        details: 'Deactivated fixed task',
+      },
+    });
+
+    res.json({ fixedTask: updatedTask });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong deactivating the fixed task.' });
+  }
+});
 module.exports = router;
