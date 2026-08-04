@@ -83,7 +83,6 @@ model ShiftSession {
   tasks     SessionTask[]
   report    GeneratedReport?
 
-  @@unique([shiftDate, shiftId])
   @@map("shift_sessions")
 }
 

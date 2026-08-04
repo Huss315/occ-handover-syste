@@ -1,6 +1,7 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
+const { sendShiftReportEmail } = require('../services/email.service');
 
 const router = express.Router();
 
@@ -228,23 +229,23 @@ router.post('/:sessionId/end', authMiddleware, async (req, res) => {
     const notDoneTasks = session.tasks.filter((t) => t.status === 'NotDone');
 
     const reportContent = `
-OCC Shift Handover Report
-Shift: ${session.shift.name}
-Date: ${session.shiftDate.toISOString().split('T')[0]}
-Employees: ${session.employees.map((e) => e.user.fullName).join(', ')}
+      OCC Shift Handover Report
+      Shift: ${session.shift.name}
+      Date: ${session.shiftDate.toISOString().split('T')[0]}
+      Employees: ${session.employees.map((e) => e.user.fullName).join(', ')}
 
-DONE TASKS:
-${doneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+      DONE TASKS:
+        ${doneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
 
-RUNNING TASKS:
-${runningTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+      RUNNING TASKS:
+        ${runningTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
 
-NOT DONE TASKS:
-${notDoneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
+      NOT DONE TASKS:
+       ${notDoneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
 
-NOTES:
-${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
-    `.trim();
+      NOTES:
+         ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
+          `.trim();
 
     const report = await prisma.generatedReport.create({
       data: {
@@ -255,6 +256,23 @@ ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
         emailSent: false,
       },
     });
+    // Send the report by email to all employees in this shift
+    const recipientEmails = session.employees
+      .map((e) => e.user.email)
+      .filter((email) => !!email);
+
+    const emailResult = await sendShiftReportEmail({
+      toEmails: recipientEmails,
+      subject: report.reportTitle,
+      reportContent,
+    });
+
+    if (emailResult.sent) {
+      await prisma.generatedReport.update({
+        where: { id: report.id },
+        data: { emailSent: true },
+      });
+    }
 
     // Audit log
     await prisma.auditLog.create({
