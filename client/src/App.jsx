@@ -6,6 +6,7 @@ import DashboardPage from './pages/DashboardPage';
 import AddNotePage from './pages/AddNotePage';
 import AddTempTaskPage from './pages/AddTempTaskPage';
 import HistoricalSearchPage from './pages/HistoricalSearchPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -55,6 +56,14 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <HistoricalSearchPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute>
+            <AdminDashboardPage />
           </ProtectedRoute>
         }
       />

@@ -68,6 +68,9 @@ function ShiftStartPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h1>Welcome, {user?.fullName}</h1>
           <div style={{ display: 'flex', gap: 8 }}>
+          {user?.role === 'Admin' && (
+            <button onClick={() => navigate('/admin')}>Admin Dashboard</button>
+          )}
           <button onClick={() => navigate('/reports')}>Historical Reports</button>
           <button onClick={logout}>Logout</button>
         </div>

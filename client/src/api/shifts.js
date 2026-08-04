@@ -45,3 +45,32 @@ export async function searchReport(date, shiftId) {
   const res = await apiClient.get(`/reports/search?date=${date}&shiftId=${shiftId}`);
   return res.data;
 }
+export async function getUsers() {
+  const res = await apiClient.get('/admin/users');
+  return res.data.users;
+}
+
+export async function createUser(data) {
+  const res = await apiClient.post('/admin/users', data);
+  return res.data.user;
+}
+
+export async function deactivateUser(userId) {
+  const res = await apiClient.patch(`/admin/users/${userId}/deactivate`);
+  return res.data.user;
+}
+
+export async function getFixedTasks() {
+  const res = await apiClient.get('/admin/fixed-tasks');
+  return res.data.fixedTasks;
+}
+
+export async function createFixedTask(data) {
+  const res = await apiClient.post('/admin/fixed-tasks', data);
+  return res.data.fixedTask;
+}
+
+export async function deactivateFixedTask(taskId) {
+  const res = await apiClient.patch(`/admin/fixed-tasks/${taskId}/deactivate`);
+  return res.data.fixedTask;
+}
