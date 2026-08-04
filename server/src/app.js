@@ -5,6 +5,7 @@ const shiftRoutes = require('./routes/shift.routes');
 const taskRoutes = require('./routes/task.routes');
 const noteRoutes = require('./routes/note.routes');
 const tempTaskRoutes = require('./routes/tempTask.routes');
+const adminRoutes = require('./routes/admin.routes');
 
 const app = express();
 
@@ -20,5 +21,6 @@ app.use('/api/shifts', shiftRoutes);
 app.use('/api/tasks', taskRoutes);
 app.use('/api/notes', noteRoutes);
 app.use('/api/temp-tasks', tempTaskRoutes);
+app.use('/api/admin', adminRoutes);
 
 module.exports = app;
