@@ -3,6 +3,8 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import LoginPage from './pages/LoginPage';
 import ShiftStartPage from './pages/ShiftStartPage';
 import DashboardPage from './pages/DashboardPage';
+import AddNotePage from './pages/AddNotePage';
+import AddTempTaskPage from './pages/AddTempTaskPage';
 
 
 function ProtectedRoute({ children }) {
@@ -29,6 +31,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <DashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-note"
+        element={
+          <ProtectedRoute>
+            <AddNotePage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/add-temp-task"
+        element={
+          <ProtectedRoute>
+            <AddTempTaskPage />
           </ProtectedRoute>
         }
       />

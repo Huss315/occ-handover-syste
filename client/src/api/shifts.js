@@ -32,3 +32,12 @@ export async function getSession(sessionId) {
   const res = await apiClient.get(`/shifts/${sessionId}`);
   return res.data.session;
 }
+export async function createNote(noteText, targetDate, targetShiftId) {
+  const res = await apiClient.post('/notes', { noteText, targetDate, targetShiftId });
+  return res.data.note;
+}
+
+export async function createTempTask(taskTitle, description, targetDate, targetShiftId) {
+  const res = await apiClient.post('/temp-tasks', { taskTitle, description, targetDate, targetShiftId });
+  return res.data.tempTask;
+}
