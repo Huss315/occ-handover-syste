@@ -84,7 +84,10 @@ function DashboardPage() {
   return (
     <div className="page page-wide">
       <div className="page-header">
-        <h1>Shift Dashboard</h1>
+        <div className="header-brand">
+          <img src="/afs_logo.png" alt="" className="header-logo" />
+          <h1>Shift Dashboard</h1>
+        </div>
         <button className="btn-ghost" onClick={logout}>Logout</button>
       </div>
 

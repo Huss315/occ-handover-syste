@@ -88,9 +88,12 @@ function ShiftStartPage() {
   return (
     <div className="page page-wide">
       <div className="page-header">
-        <div>
-          <h1>Welcome, {user?.fullName}</h1>
-          <p className="readout">{today}</p>
+        <div className="header-brand">
+          <img src="/afs_logo.png" alt="" className="header-logo" />
+          <div>
+            <h1>Welcome, {user?.fullName}</h1>
+            <p className="readout">{today}</p>
+          </div>
         </div>
         <div className="header-actions">
           {user?.role === 'Admin' && (

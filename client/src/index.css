@@ -486,6 +486,23 @@ select.status-select {
   grid-template-columns: repeat(3, 1fr);
   gap: var(--space-3);
 }
+.login-logo {
+  height: 64px;
+  width: auto;
+  margin-bottom: var(--space-4);
+}
+
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.header-logo {
+  height: 64px;
+  width: auto;
+  border-radius: 4px;
+}
 
 /* ============================================
    Responsive

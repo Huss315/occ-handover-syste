@@ -23,7 +23,7 @@ function LoginPage() {
   return (
     <div className="auth-shell">
       <div className="auth-card">
-        <div className="brand">OCC / NOC</div>
+        <img src="/afs_logo.png" alt="Company Logo" className="login-logo" />
         <h1>Handover System</h1>
         <form onSubmit={handleSubmit}>
           <div className="field">

@@ -99,7 +99,10 @@ async function loadNotes() {
   return (
     <div className="page">
       <div className="page-header">
-        <h1>Admin Dashboard</h1>
+        <div className="header-brand">
+          <img src="/afs_logo.png" alt="" className="header-logo" />
+          <h1>Admin Dashboard</h1>
+        </div>
         <div className="header-actions">
           <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
