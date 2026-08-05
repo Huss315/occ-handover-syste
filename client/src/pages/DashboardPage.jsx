@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateTaskStatus, endShift, getSession } from '../api/shifts';
+import { updateTaskStatus, endShift, getSession, getPreviousShift } from '../api/shifts';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 
@@ -12,12 +12,15 @@ function statusLed(status) {
 }
 
 function DashboardPage() {
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
   const [sessionId] = useState(location.state?.sessionId || null);
+  const [session, setSession] = useState(null);
   const [tasks, setTasks] = useState([]);
+  const [fixedNotes, setFixedNotes] = useState([]);
+  const [previous, setPrevious] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [ending, setEnding] = useState(false);
@@ -35,8 +38,14 @@ function DashboardPage() {
 
   async function loadSessionData() {
     try {
-      const sessionData = await getSession(sessionId);
+      const [sessionData, previousData] = await Promise.all([
+        getSession(sessionId),
+        getPreviousShift(),
+      ]);
+      setSession(sessionData);
       setTasks(sessionData.tasks);
+      setFixedNotes(sessionData.shift?.fixedNotes || []);
+      setPrevious(previousData);
       setLoading(false);
     } catch (err) {
       setError('Failed to load shift data.');
@@ -73,7 +82,7 @@ function DashboardPage() {
   if (loading) return <div className="page"><p>Loading...</p></div>;
 
   return (
-    <div className="page">
+    <div className="page page-wide">
       <div className="page-header">
         <h1>Shift Dashboard</h1>
         <button className="btn-ghost" onClick={logout}>Logout</button>
@@ -85,10 +94,52 @@ function DashboardPage() {
         <button className="btn-primary" onClick={() => navigate('/shift-start')}>Go to Shift Start</button>
       )}
 
-      {sessionId && (
+      {sessionId && session && (
         <>
-          <p className="readout">Session #{sessionId}</p>
+          <p className="readout" style={{ marginBottom: 20 }}>
+            Session #{sessionId} · {session.shift?.name}
+          </p>
 
+          <div className="grid-2">
+            {/* 1. Logged-in user + shift employees */}
+            <div className="card">
+              <h3>Shift Employees</h3>
+              <p style={{ marginBottom: 4 }}><strong>Logged in as:</strong> {user?.fullName}</p>
+              <p className="readout">
+                {session.employees.map((e) => e.user.fullName).join(', ')}
+              </p>
+            </div>
+
+            {/* 3. Fixed Notes */}
+            <div className="card">
+              <h3>Fixed Notes</h3>
+              {fixedNotes.length === 0 && <p>No fixed notes for this shift.</p>}
+              {fixedNotes.map((n) => (
+                <p key={n.id} style={{ fontSize: 13, marginBottom: 6 }}>— {n.noteText}</p>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Previous shift tasks & notes */}
+          <div className="card">
+            <h3>Previous Shift</h3>
+            {previous?.previousSession ? (
+              <>
+                <p className="readout">
+                  {previous.previousSession.shiftName} — {new Date(previous.previousSession.shiftDate).toLocaleDateString()}
+                </p>
+                {previous.previousNotes?.length > 0 && (
+                  previous.previousNotes.map((n) => (
+                    <p key={n.id} style={{ fontSize: 13 }}>— {n.noteText}</p>
+                  ))
+                )}
+              </>
+            ) : (
+              <p>No previous shift data.</p>
+            )}
+          </div>
+
+          {/* 2. Fixed tasks (carry-forward and temp tasks appear inline here, not separately) */}
           <div className="card">
             <h3>Tasks</h3>
             {tasks.length === 0 && <p>No tasks for this shift.</p>}

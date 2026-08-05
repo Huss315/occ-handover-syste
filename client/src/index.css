@@ -91,6 +91,45 @@ a:hover { color: var(--accent-hover); }
   margin: 0 auto;
   padding: var(--space-6) var(--space-4) var(--space-6);
 }
+.page-wide {
+  max-width: 1080px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  margin-top: 8px;
+}
+
+.checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: var(--surface-raised);
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.checklist-item.locked {
+  opacity: 0.75;
+  cursor: default;
+}
+
+.checklist-item input {
+  width: auto;
+}
 
 .page-header {
   display: flex;
@@ -188,6 +227,7 @@ input[type="text"],
 input[type="password"],
 input[type="email"],
 input[type="date"],
+input:not([type]),
 select,
 textarea {
   background: var(--surface-raised);
@@ -451,6 +491,7 @@ select.status-select {
    Responsive
    ============================================ */
 @media (max-width: 640px) {
+  .grid-2 { grid-template-columns: 1fr; }
   .page { padding: var(--space-4); }
   .page-header { flex-direction: column; align-items: flex-start; }
   .menu-grid { grid-template-columns: 1fr; }

@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   getUsers, createUser, deactivateUser,
   getFixedTasks, createFixedTask, deactivateFixedTask,
+  getFixedNotes, createFixedNote, deactivateFixedNote,
   getShiftsList,
 } from '../api/shifts';
 import Toast from '../components/Toast';
@@ -21,6 +22,8 @@ function AdminDashboardPage() {
 
   const [newUser, setNewUser] = useState({ fullName: '', username: '', email: '', password: '', roleName: 'User' });
   const [newTask, setNewTask] = useState({ taskName: '', description: '', shiftId: '' });
+  const [fixedNotes, setFixedNotes] = useState([]);
+  const [newNote, setNewNote] = useState({ noteText: '', shiftId: '' });
 
   useEffect(() => {
     getShiftsList().then(setShifts).catch(() => {});
@@ -35,7 +38,28 @@ function AdminDashboardPage() {
     try { setFixedTasks(await getFixedTasks()); setView('tasks'); }
     catch { setError('Failed to load fixed tasks.'); }
   }
+async function loadNotes() {
+    try { setFixedNotes(await getFixedNotes()); setView('notes'); }
+    catch { setError('Failed to load fixed notes.'); }
+  }
 
+  async function handleCreateNote(e) {
+    e.preventDefault();
+    setError('');
+    try {
+      await createFixedNote({ ...newNote, shiftId: parseInt(newNote.shiftId, 10) });
+      setToast({ message: 'Fixed note created successfully.', type: 'success' });
+      setNewNote({ noteText: '', shiftId: '' });
+      loadNotes();
+    } catch (err) {
+      setError(err.response?.data?.error || 'Failed to create fixed note.');
+    }
+  }
+
+  async function handleDeactivateNote(id) {
+    try { await deactivateFixedNote(id); setToast({ message: 'Fixed note deactivated.', type: 'success' }); loadNotes(); }
+    catch { setError('Failed to deactivate fixed note.'); }
+  }
   async function handleCreateUser(e) {
     e.preventDefault();
     setError('');
@@ -77,7 +101,6 @@ function AdminDashboardPage() {
       <div className="page-header">
         <h1>Admin Dashboard</h1>
         <div className="header-actions">
-          <button className="btn-ghost" onClick={() => navigate('/shift-start')}>Back to Shift Start</button>
           <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
       </div>
@@ -88,6 +111,7 @@ function AdminDashboardPage() {
         <div className="menu-grid">
           <button className="btn-primary" style={{ padding: 20 }} onClick={loadUsers}>Manage Users</button>
           <button className="btn-primary" style={{ padding: 20 }} onClick={loadTasks}>Manage Fixed Tasks</button>
+          <button className="btn-primary" style={{ padding: 20 }} onClick={loadNotes}>Manage Fixed Notes</button>
           <button className="btn-primary" style={{ padding: 20 }} onClick={() => navigate('/reports')}>View Reports</button>
         </div>
       )}
@@ -155,6 +179,38 @@ function AdminDashboardPage() {
               <div className="list-row" key={t.id}>
                 <span>{t.taskName} <span className="readout">· {t.shift.name}</span> {!t.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
                 {t.isActive && <button className="btn-danger" onClick={() => handleDeactivateTask(t.id)}>Deactivate</button>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+      {view === 'notes' && (
+        <>
+          <button className="btn-ghost" style={{ marginBottom: 16 }} onClick={() => setView('menu')}>← Back</button>
+
+          <div className="card">
+            <h3>Create New Fixed Note</h3>
+            <form onSubmit={handleCreateNote}>
+              <div className="field"><label>Note Text</label><textarea value={newNote.noteText} onChange={(e) => setNewNote({ ...newNote, noteText: e.target.value })} /></div>
+              <div className="field">
+                <label>Shift</label>
+                <select value={newNote.shiftId} onChange={(e) => setNewNote({ ...newNote, shiftId: e.target.value })}>
+                  <option value="">-- Choose Shift --</option>
+                  {shifts.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button type="submit" className="btn-primary btn-full">Create Fixed Note</button>
+            </form>
+          </div>
+
+          <div className="card">
+            <h3>All Fixed Notes</h3>
+            {fixedNotes.map((n) => (
+              <div className="list-row" key={n.id}>
+                <span>{n.noteText} <span className="readout">· {n.shift.name}</span> {!n.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
+                {n.isActive && <button className="btn-danger" onClick={() => handleDeactivateNote(n.id)}>Deactivate</button>}
               </div>
             ))}
           </div>

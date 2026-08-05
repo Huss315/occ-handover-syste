@@ -258,4 +258,49 @@ router.patch('/fixed-tasks/:id/deactivate', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deactivating the fixed task.' });
   }
 });
+// POST /api/admin/fixed-notes
+router.post('/fixed-notes', async (req, res) => {
+  try {
+    const { noteText, shiftId } = req.body;
+    if (!noteText || !shiftId) {
+      return res.status(400).json({ error: 'noteText and shiftId are required.' });
+    }
+    const newNote = await prisma.fixedNote.create({
+      data: { noteText, shiftId, isActive: true, createdById: req.user.userId },
+    });
+    await prisma.auditLog.create({
+      data: { userId: req.user.userId, actionType: 'Create', entityName: 'FixedNote', entityId: newNote.id, details: 'Created fixed note' },
+    });
+    res.status(201).json({ fixedNote: newNote });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong creating the fixed note.' });
+  }
+});
+
+// GET /api/admin/fixed-notes
+router.get('/fixed-notes', async (req, res) => {
+  try {
+    const notes = await prisma.fixedNote.findMany({ include: { shift: true }, orderBy: { createdAt: 'desc' } });
+    res.json({ fixedNotes: notes });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong fetching fixed notes.' });
+  }
+});
+
+// PATCH /api/admin/fixed-notes/:id/deactivate
+router.patch('/fixed-notes/:id/deactivate', async (req, res) => {
+  try {
+    const noteId = parseInt(req.params.id, 10);
+    const updated = await prisma.fixedNote.update({ where: { id: noteId }, data: { isActive: false } });
+    await prisma.auditLog.create({
+      data: { userId: req.user.userId, actionType: 'AdminChange', entityName: 'FixedNote', entityId: noteId, details: 'Deactivated fixed note' },
+    });
+    res.json({ fixedNote: updated });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong deactivating the fixed note.' });
+  }
+});
 module.exports = router;

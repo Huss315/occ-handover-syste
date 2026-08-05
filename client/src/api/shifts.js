@@ -74,3 +74,21 @@ export async function deactivateFixedTask(taskId) {
   const res = await apiClient.patch(`/admin/fixed-tasks/${taskId}/deactivate`);
   return res.data.fixedTask;
 }
+export async function getFixedNotes() {
+  const res = await apiClient.get('/admin/fixed-notes');
+  return res.data.fixedNotes;
+}
+
+export async function createFixedNote(data) {
+  const res = await apiClient.post('/admin/fixed-notes', data);
+  return res.data.fixedNote;
+}
+
+export async function deactivateFixedNote(id) {
+  const res = await apiClient.patch(`/admin/fixed-notes/${id}/deactivate`);
+  return res.data.fixedNote;
+}
+export async function getMyActiveShift() {
+  const res = await apiClient.get('/shifts/my-active');
+  return res.data.activeSession;
+}

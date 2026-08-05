@@ -42,7 +42,7 @@ model User {
   notes            HandoverNote[]
   reportsGenerated GeneratedReport[]
   auditLogs        AuditLog[]
-
+  fixedNotesMade   FixedNote[]
   @@map("users")
 }
 
@@ -56,6 +56,7 @@ model Shift {
   isActive Boolean @default(true) @map("is_active")
 
   fixedTasks     FixedTask[]
+  fixedNotes     FixedNote[]
   sessions       ShiftSession[]
   temporaryTasks TemporaryTask[]
   notes          HandoverNote[]
@@ -115,6 +116,19 @@ model FixedTask {
   sessionTasks SessionTask[]
 
   @@map("fixed_tasks")
+}
+
+model FixedNote {
+  id          Int      @id @default(autoincrement())
+  noteText    String   @map("note_text")
+  shiftId     Int      @map("shift_id")
+  shift       Shift    @relation(fields: [shiftId], references: [id])
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById Int      @map("created_by")
+  createdBy   User     @relation(fields: [createdById], references: [id])
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("fixed_notes")
 }
 
 model TemporaryTask {

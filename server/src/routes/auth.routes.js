@@ -69,7 +69,10 @@ router.get('/admin-only', authMiddleware, requireRole('Admin'), (req, res) => {
 router.get('/employees', authMiddleware, async (req, res) => {
   try {
     const employees = await prisma.user.findMany({
-      where: { isActive: true },
+      where: {
+        isActive: true,
+        role: { name: { not: 'Admin' } },
+      },
       select: { id: true, fullName: true, username: true },
       orderBy: { fullName: 'asc' },
     });

@@ -13,8 +13,8 @@ function LoginPage() {
     e.preventDefault();
     setError('');
     try {
-      await login(username, password);
-      navigate('/shift-start');
+      const loggedInUser = await login(username, password);
+      navigate(loggedInUser.role === 'Admin' ? '/admin' : '/shift-start');
     } catch (err) {
       setError(err.response?.data?.error || 'Login failed. Please try again.');
     }
