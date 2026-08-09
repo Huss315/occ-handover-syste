@@ -1,17 +1,20 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getShiftsList, createTempTask } from '../api/shifts';
+import { getShiftsList, createTempTask, updateTempTask } from '../api/shifts';
 
 function AddTempTaskPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionId = location.state?.sessionId;
+  const editingTask = location.state?.tempTask; // if present, we're editing
 
   const [shifts, setShifts] = useState([]);
-  const [targetDate, setTargetDate] = useState('');
-  const [targetShiftId, setTargetShiftId] = useState('');
-  const [taskTitle, setTaskTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [targetDate, setTargetDate] = useState(
+    editingTask ? editingTask.targetDate.split('T')[0] : ''
+  );
+  const [targetShiftId, setTargetShiftId] = useState(editingTask?.targetShiftId || '');
+  const [taskTitle, setTaskTitle] = useState(editingTask?.taskTitle || '');
+  const [description, setDescription] = useState(editingTask?.description || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -28,9 +31,13 @@ function AddTempTaskPage() {
     }
     setSaving(true);
     try {
-      await createTempTask(taskTitle, description, targetDate, parseInt(targetShiftId, 10));
-      navigate('/dashboard', { state: { sessionId } });
-    } catch (err) {
+      if (editingTask) {
+        await updateTempTask(editingTask.id, { taskTitle, description, targetDate, targetShiftId: parseInt(targetShiftId, 10) });
+      } else {
+        await createTempTask(taskTitle, description, targetDate, parseInt(targetShiftId, 10));
+      }
+      navigate(sessionId ? '/dashboard' : '/temp-tasks', { state: { sessionId } });  
+      } catch (err) {
       setError(err.response?.data?.error || 'Failed to save temporary task.');
       setSaving(false);
     }
@@ -39,7 +46,7 @@ function AddTempTaskPage() {
   return (
     <div className="page" style={{ maxWidth: 460 }}>
       <div className="page-header">
-        <h1>Add Temporary Task</h1>
+        <h1>{editingTask ? 'Edit Temporary Task' : 'Add Temporary Task'}</h1>
       </div>
       <form onSubmit={handleSave}>
         <div className="field">
@@ -68,9 +75,9 @@ function AddTempTaskPage() {
 
         <div className="btn-row">
           <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : editingTask ? 'Update' : 'Save'}
           </button>
-          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate('/dashboard', { state: { sessionId } })}>
+          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate(sessionId ? '/dashboard' : '/temp-tasks', { state: { sessionId } })}>
             Cancel
           </button>
         </div>

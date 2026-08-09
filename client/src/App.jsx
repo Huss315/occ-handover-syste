@@ -7,6 +7,8 @@ import AddNotePage from './pages/AddNotePage';
 import AddTempTaskPage from './pages/AddTempTaskPage';
 import HistoricalSearchPage from './pages/HistoricalSearchPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
+import NotesPage from './pages/NotesPage';
+import TempTasksPage from './pages/TempTasksPage';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -64,6 +66,22 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <AdminDashboardPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/notes"
+        element={
+          <ProtectedRoute>
+            <NotesPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/temp-tasks"
+        element={
+          <ProtectedRoute>
+            <TempTasksPage />
           </ProtectedRoute>
         }
       />

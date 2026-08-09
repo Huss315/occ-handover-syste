@@ -1,16 +1,19 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { getShiftsList, createNote } from '../api/shifts';
+import { getShiftsList, createNote, updateNote } from '../api/shifts';
 
 function AddNotePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionId = location.state?.sessionId;
+  const editingNote = location.state?.note; // if present, we're editing
 
   const [shifts, setShifts] = useState([]);
-  const [targetDate, setTargetDate] = useState('');
-  const [targetShiftId, setTargetShiftId] = useState('');
-  const [noteText, setNoteText] = useState('');
+  const [targetDate, setTargetDate] = useState(
+    editingNote ? editingNote.targetDate.split('T')[0] : ''
+  );
+  const [targetShiftId, setTargetShiftId] = useState(editingNote?.targetShiftId || '');
+  const [noteText, setNoteText] = useState(editingNote?.noteText || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -27,9 +30,12 @@ function AddNotePage() {
     }
     setSaving(true);
     try {
-      await createNote(noteText, targetDate, parseInt(targetShiftId, 10));
-      navigate('/dashboard', { state: { sessionId } });
-    } catch (err) {
+      if (editingNote) {
+        await updateNote(editingNote.id, { noteText, targetDate, targetShiftId: parseInt(targetShiftId, 10) });
+      } else {
+        await createNote(noteText, targetDate, parseInt(targetShiftId, 10));
+      }
+        navigate(sessionId ? '/dashboard' : '/notes', { state: { sessionId } });    } catch (err) {
       setError(err.response?.data?.error || 'Failed to save note.');
       setSaving(false);
     }
@@ -38,7 +44,7 @@ function AddNotePage() {
   return (
     <div className="page" style={{ maxWidth: 460 }}>
       <div className="page-header">
-        <h1>Add Note</h1>
+        <h1>{editingNote ? 'Edit Note' : 'Add Note'}</h1>
       </div>
       <form onSubmit={handleSave}>
         <div className="field">
@@ -63,9 +69,9 @@ function AddNotePage() {
 
         <div className="btn-row">
           <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
-            {saving ? 'Saving...' : 'Save'}
+            {saving ? 'Saving...' : editingNote ? 'Update' : 'Save'}
           </button>
-          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate('/dashboard', { state: { sessionId } })}>
+          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() =>navigate(sessionId ? '/dashboard' : '/notes', { state: { sessionId } })}>
             Cancel
           </button>
         </div>

@@ -70,7 +70,6 @@ router.get('/previous', authMiddleware, async (req, res) => {
   }
 });
 
-// GET /api/shifts/:sessionId — full session details, including live Fixed Notes for that shift
 router.get('/:sessionId', authMiddleware, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId, 10);
@@ -85,7 +84,14 @@ router.get('/:sessionId', authMiddleware, async (req, res) => {
     if (!session) {
       return res.status(404).json({ error: 'Session not found.' });
     }
-    res.json({ session });
+
+    // Notes scheduled for this exact date + shift (created via Add Note)
+    const notes = await prisma.handoverNote.findMany({
+      where: { targetDate: session.shiftDate, targetShiftId: session.shiftId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({ session: { ...session, notes } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong fetching the session.' });

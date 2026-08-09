@@ -92,3 +92,33 @@ export async function getMyActiveShift() {
   const res = await apiClient.get('/shifts/my-active');
   return res.data.activeSession;
 }
+export async function updateNote(id, data) {
+  const res = await apiClient.patch(`/notes/${id}`, data);
+  return res.data.note;
+}
+
+export async function deleteNote(id) {
+  await apiClient.delete(`/notes/${id}`);
+}
+
+export async function updateTempTask(id, data) {
+  const res = await apiClient.patch(`/temp-tasks/${id}`, data);
+  return res.data.tempTask;
+}
+
+export async function deleteTempTask(id) {
+  await apiClient.delete(`/temp-tasks/${id}`);
+}
+export async function getAllNotes() {
+  const res = await apiClient.get('/notes');
+  return res.data.notes;
+}
+
+export async function getAllTempTasks() {
+  const res = await apiClient.get('/temp-tasks');
+  return res.data.tempTasks;
+}
+export async function carryNoteForward(id) {
+  const res = await apiClient.post(`/notes/${id}/carry-forward`);
+  return res.data.note;
+}

@@ -99,6 +99,8 @@ function ShiftStartPage() {
           {user?.role === 'Admin' && (
             <button className="btn-ghost" onClick={() => navigate('/admin')}>Admin Dashboard</button>
           )}
+          <button className="btn-ghost" onClick={() => navigate('/notes')}>Notes</button>
+          <button className="btn-ghost" onClick={() => navigate('/temp-tasks')}>Temp Tasks</button>
           <button className="btn-ghost" onClick={() => navigate('/reports')}>Historical Reports</button>
           <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
@@ -163,14 +165,6 @@ function ShiftStartPage() {
                   <span className="readout">{t.status}</span>
                 </div>
               ))}
-              {previousShift.previousNotes?.length > 0 && (
-                <>
-                  <h3 style={{ marginTop: 16 }}>Notes</h3>
-                  {previousShift.previousNotes.map((n) => (
-                    <p key={n.id} style={{ fontSize: 13 }}>— {n.noteText}</p>
-                  ))}
-                </>
-              )}
             </>
           ) : (
             <p>No previous shift data available.</p>
