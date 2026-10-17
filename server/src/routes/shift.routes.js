@@ -1,7 +1,6 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
-const { sendShiftReportEmail } = require('../services/email.service');
 
 const router = express.Router();
 
@@ -252,11 +251,6 @@ ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
       },
     });
 
-    const recipientEmails = session.employees.map((e) => e.user.email).filter(Boolean);
-    const emailResult = await sendShiftReportEmail({ toEmails: recipientEmails, subject: report.reportTitle, reportContent });
-    if (emailResult.sent) {
-      await prisma.generatedReport.update({ where: { id: report.id }, data: { emailSent: true } });
-    }
 
     await prisma.auditLog.create({
       data: { userId: req.user.userId, actionType: 'EndShift', entityName: 'ShiftSession', entityId: session.id, details: 'Shift ended and report generated.' },

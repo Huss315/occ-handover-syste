@@ -80,8 +80,7 @@ function DashboardPage() {
     setEnding(true);
     try {
       await endShift(sessionId);
-      setToast({ message: 'Shift ended and report sent successfully.', type: 'success' });
-      setTimeout(() => navigate('/shift-start'), 1500);
+setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTimeout(() => navigate('/shift-start'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to end shift.');
       setEnding(false);
