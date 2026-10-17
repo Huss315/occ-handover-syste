@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getShiftsList, getEmployeesList, getPreviousShift, startShift, getMyActiveShift } from '../api/shifts';
+
 function statusLed(status) {
   if (status === 'Done') return 'led-done';
   if (status === 'Running') return 'led-running';
@@ -19,10 +20,11 @@ function ShiftStartPage() {
   const [selectedShiftId, setSelectedShiftId] = useState('');
   const [selectedEmployeeIds, setSelectedEmployeeIds] = useState([]);
   const [previousShift, setPreviousShift] = useState(null);
+  const [activeShift, setActiveShift] = useState(null);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [activeShift, setActiveShift] = useState(null);
+
   useEffect(() => {
     if (user?.role === 'Admin') {
       navigate('/admin', { replace: true });
@@ -53,7 +55,7 @@ function ShiftStartPage() {
   }, []);
 
   function toggleEmployee(id) {
-    if (id === user?.id) return; // self is always locked in
+    if (id === user?.id) return;
     setSelectedEmployeeIds((prev) => {
       if (prev.includes(id)) return prev.filter((e) => e !== id);
       if (prev.length >= MAX_EMPLOYEES) {
@@ -84,6 +86,7 @@ function ShiftStartPage() {
   if (loading) return <div className="page"><p>Loading...</p></div>;
 
   const today = new Date().toLocaleDateString();
+  const hasCarry = previousShift?.carryForwardTasks?.length > 0;
 
   return (
     <div className="page page-wide">
@@ -105,18 +108,18 @@ function ShiftStartPage() {
           <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
       </div>
-          {activeShift && (
+
+      {activeShift && (
         <div className="card" style={{ borderColor: 'var(--accent)' }}>
           <h3>Active Shift In Progress</h3>
-          <p>You're already part of an active <strong>{activeShift.shift.name}</strong> shift, started by someone else on your team.</p>
+          <p>You're part of an active <strong>{activeShift.shift.name}</strong> shift.</p>
           <button className="btn-primary" onClick={() => navigate('/dashboard', { state: { sessionId: activeShift.id } })}>
             Join Shift
           </button>
         </div>
       )}
 
-  
-      <div className="grid-2">
+      <div className={hasCarry ? 'grid-2' : ''}>
         <div className="card">
           <h3>Select Shift</h3>
           <select value={selectedShiftId} onChange={(e) => setSelectedShiftId(e.target.value)}>
@@ -145,31 +148,24 @@ function ShiftStartPage() {
           </div>
         </div>
 
-        <div className="card">
-          <h3>Previous Shift Summary</h3>
-          {previousShift?.previousSession ? (
-            <>
-              <p className="readout">
-                {previousShift.previousSession.shiftName} — {new Date(previousShift.previousSession.shiftDate).toLocaleDateString()}
-              </p>
-              <p className="readout" style={{ marginBottom: 12 }}>
-                {previousShift.previousEmployees?.join(', ')}
-              </p>
-              {previousShift.carryForwardTasks.length === 0 && <p>No carry-forward tasks.</p>}
-              {previousShift.carryForwardTasks.map((t) => (
-                <div className="status-row" key={t.id}>
-                  <div className="status-label">
-                    <span className={`led ${statusLed(t.status)}`}></span>
-                    <span className="status-title">{t.taskTitle}</span>
-                  </div>
-                  <span className="readout">{t.status}</span>
+        {/* Only shown when the previous shift left Not Done / Running tasks */}
+        {hasCarry && (
+          <div className="card">
+            <h3>Previous Shift Summary</h3>
+            <p className="readout" style={{ marginBottom: 12 }}>
+              {previousShift.previousSession.shiftName} — {new Date(previousShift.previousSession.shiftDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}
+            </p>
+            {previousShift.carryForwardTasks.map((t) => (
+              <div className="status-row" key={t.id}>
+                <div className="status-label">
+                  <span className={`led ${statusLed(t.status)}`}></span>
+                  <span className="status-title">{t.taskTitle}</span>
                 </div>
-              ))}
-            </>
-          ) : (
-            <p>No previous shift data available.</p>
-          )}
-        </div>
+                <span className="readout">{t.status === 'NotDone' ? 'Not Done' : t.status}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {error && <p className="error-text">{error}</p>}

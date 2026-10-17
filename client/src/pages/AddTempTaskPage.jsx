@@ -6,12 +6,11 @@ function AddTempTaskPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionId = location.state?.sessionId;
-  const editingTask = location.state?.tempTask; // if present, we're editing
+  const editingTask = location.state?.tempTask;
+  const backTo = sessionId ? '/dashboard' : '/temp-tasks';
 
   const [shifts, setShifts] = useState([]);
-  const [targetDate, setTargetDate] = useState(
-    editingTask ? editingTask.targetDate.split('T')[0] : ''
-  );
+  const [targetDate, setTargetDate] = useState(editingTask ? editingTask.targetDate.split('T')[0] : '');
   const [targetShiftId, setTargetShiftId] = useState(editingTask?.targetShiftId || '');
   const [taskTitle, setTaskTitle] = useState(editingTask?.taskTitle || '');
   const [description, setDescription] = useState(editingTask?.description || '');
@@ -36,8 +35,11 @@ function AddTempTaskPage() {
       } else {
         await createTempTask(taskTitle, description, targetDate, parseInt(targetShiftId, 10));
       }
-      navigate(sessionId ? '/dashboard' : '/temp-tasks', { state: { sessionId } });  
-      } catch (err) {
+      navigate(backTo, {
+        replace: true,
+        state: { sessionId, flash: editingTask ? 'Temporary task updated successfully.' : 'Temporary task added successfully.' },
+      });
+    } catch (err) {
       setError(err.response?.data?.error || 'Failed to save temporary task.');
       setSaving(false);
     }
@@ -77,7 +79,7 @@ function AddTempTaskPage() {
           <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
             {saving ? 'Saving...' : editingTask ? 'Update' : 'Save'}
           </button>
-          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate(sessionId ? '/dashboard' : '/temp-tasks', { state: { sessionId } })}>
+          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate(backTo, { state: { sessionId } })}>
             Cancel
           </button>
         </div>

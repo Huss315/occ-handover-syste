@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateTaskStatus, endShift, getSession, getPreviousShift, deleteNote, deleteTempTask, carryNoteForward } from '../api/shifts';
+import { updateTaskStatus, endShift, getSession, getPreviousShift, deleteNote, carryNoteForward } from '../api/shifts';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
+import StatusButtons from '../components/StatusButtons';
 
 function statusLed(status) {
   if (status === 'Done') return 'led-done';
@@ -27,7 +28,16 @@ function DashboardPage() {
   const [ending, setEnding] = useState(false);
   const [showEndConfirm, setShowEndConfirm] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [toast, setToast] = useState(null);
+  const [toast, setToast] = useState(
+    location.state?.flash ? { message: location.state.flash, type: 'success' } : null
+  );
+
+  // Clear the one-time success message from history so a refresh doesn't show it again
+  useEffect(() => {
+    if (location.state?.flash) {
+      navigate(location.pathname, { replace: true, state: { sessionId } });
+    }
+  }, []);
 
   useEffect(() => {
     if (!sessionId) {
@@ -65,10 +75,6 @@ function DashboardPage() {
     }
   }
 
-  function handleEndShiftClick() {
-    setShowEndConfirm(true);
-  }
-
   async function confirmEndShift() {
     setShowEndConfirm(false);
     setEnding(true);
@@ -94,16 +100,11 @@ function DashboardPage() {
   async function confirmDelete() {
     if (!deleteTarget) return;
     try {
-      if (deleteTarget.type === 'note') {
-        await deleteNote(deleteTarget.id);
-        setNotes((prev) => prev.filter((n) => n.id !== deleteTarget.id));
-      } else {
-        await deleteTempTask(deleteTarget.id);
-        setTasks((prev) => prev.filter((t) => t.tempTaskId !== deleteTarget.id));
-      }
-      setToast({ message: 'Deleted successfully.', type: 'success' });
+      await deleteNote(deleteTarget.id);
+      setNotes((prev) => prev.filter((n) => n.id !== deleteTarget.id));
+      setToast({ message: 'Note deleted.', type: 'success' });
     } catch (err) {
-      setError('Failed to delete.');
+      setToast({ message: err.response?.data?.error || 'Failed to delete.', type: 'error' });
     } finally {
       setDeleteTarget(null);
     }
@@ -115,6 +116,15 @@ function DashboardPage() {
   const tempTasks = tasks.filter((t) => t.taskType === 'Temporary');
   const carryForwardTasks = tasks.filter((t) => t.taskType === 'CarryForward');
 
+  const shiftDateLabel = session
+    ? new Date(session.shiftDate).toLocaleDateString(undefined, {
+        weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC',
+      })
+    : '';
+  const startedLabel = session
+    ? new Date(session.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : '';
+
   return (
     <div className="page page-wide">
       <div className="page-header">
@@ -125,6 +135,7 @@ function DashboardPage() {
         <div className="header-actions">
           <button className="btn-ghost" onClick={() => navigate('/notes')}>Notes</button>
           <button className="btn-ghost" onClick={() => navigate('/temp-tasks')}>Temp Tasks</button>
+          <button className="btn-ghost" onClick={() => navigate('/reports')}>Reports</button>
           <button className="btn-ghost" onClick={logout}>Logout</button>
         </div>
       </div>
@@ -137,59 +148,59 @@ function DashboardPage() {
 
       {sessionId && session && (
         <>
-          <p className="readout" style={{ marginBottom: 20 }}>
-            Session #{sessionId} · {session.shift?.name}
-          </p>
-
-          <div className="grid-2">
-            <div className="card">
-              <h3>Shift Employees</h3>
-              <p style={{ marginBottom: 4 }}><strong>Logged in as:</strong> {user?.fullName}</p>
-              <p className="readout">{session.employees.map((e) => e.user.fullName).join(', ')}</p>
+          {/* Shift details — big and visible */}
+          <div className="shift-banner">
+            <div>
+              <div className="readout">Current Shift</div>
+              <h2 className="shift-banner-name">{session.shift?.name} Shift</h2>
+              <div className="shift-banner-meta">
+                <span>{shiftDateLabel}</span>
+                <span>Started {startedLabel}</span>
+                <span>Session #{sessionId}</span>
+              </div>
             </div>
-
-            <div className="card">
-              <h3>Fixed Notes</h3>
-              {fixedNotes.length === 0 && <p>No fixed notes for this shift.</p>}
-              {fixedNotes.map((n) => (
-                <p key={n.id} style={{ fontSize: 13, marginBottom: 6 }}>— {n.noteText}</p>
-              ))}
+            <div>
+              <div className="readout" style={{ marginBottom: 8 }}>
+                Team on shift ({session.employees.length})
+              </div>
+              <div className="chip-list">
+                {session.employees.map((e) => (
+                  <span key={e.id} className={`chip ${e.userId === user?.id ? 'chip-you' : ''}`}>
+                    {e.user.fullName}{e.userId === user?.id ? ' · you' : ''}
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 
           <div className="card">
-            <h3>Previous Shift</h3>
-            {previous?.previousSession ? (
-              <p className="readout">
-                {previous.previousSession.shiftName} — {new Date(previous.previousSession.shiftDate).toLocaleDateString()}
-              </p>
-            ) : (
-              <p>No previous shift data.</p>
-            )}
-
-            {carryForwardTasks.length > 0 && (
-              <>
-                <h3 style={{ marginTop: 16 }}>Carried-Forward Tasks</h3>
-                {carryForwardTasks.map((task) => (
-                  <div className="status-row" key={task.id}>
-                    <div className="status-label">
-                      <span className={`led ${statusLed(task.status)}`}></span>
-                      <span className="status-title">{task.taskTitle}</span>
-                    </div>
-                    <select
-                      className="status-select"
-                      value={task.status}
-                      onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                    >
-                      <option value="NotDone">Not Done</option>
-                      <option value="Running">Running</option>
-                      <option value="Done">Done</option>
-                    </select>
-                  </div>
-                ))}
-              </>
-            )}
+            <h3>Fixed Notes</h3>
+            {fixedNotes.length === 0 && <p>No fixed notes for this shift.</p>}
+            {fixedNotes.map((n) => (
+              <p key={n.id} style={{ fontSize: 13, marginBottom: 6 }}>— {n.noteText}</p>
+            ))}
           </div>
+
+          {/* Previous shift section only appears if something was carried forward */}
+          {carryForwardTasks.length > 0 && (
+            <div className="card">
+              <h3>Previous Shift — Carried Forward</h3>
+              {previous?.previousSession && (
+                <p className="readout">
+                  From {previous.previousSession.shiftName} · {new Date(previous.previousSession.shiftDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}
+                </p>
+              )}
+              {carryForwardTasks.map((task) => (
+                <div className="status-row" key={task.id}>
+                  <div className="status-label">
+                    <span className={`led ${statusLed(task.status)}`}></span>
+                    <span className="status-title">{task.taskTitle}</span>
+                  </div>
+                  <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="card">
             <h3>Tasks</h3>
@@ -203,15 +214,7 @@ function DashboardPage() {
                     <div className="status-type">{task.taskType}</div>
                   </div>
                 </div>
-                <select
-                  className="status-select"
-                  value={task.status}
-                  onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                >
-                  <option value="NotDone">Not Done</option>
-                  <option value="Running">Running</option>
-                  <option value="Done">Done</option>
-                </select>
+                <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
               </div>
             ))}
           </div>
@@ -221,36 +224,14 @@ function DashboardPage() {
               <h3 style={{ margin: 0 }}>Temporary Tasks</h3>
               <button className="btn-ghost" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>+ Add</button>
             </div>
-            {tempTasks.length === 0 && <p>No temporary tasks for this shift.</p>}
+            {tempTasks.length === 0 && <p style={{ marginTop: 12 }}>No temporary tasks for this shift.</p>}
             {tempTasks.map((task) => (
               <div className="status-row" key={task.id}>
                 <div className="status-label">
                   <span className={`led ${statusLed(task.status)}`}></span>
                   <span className="status-title">{task.taskTitle}</span>
                 </div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select
-                    className="status-select"
-                    value={task.status}
-                    onChange={(e) => handleStatusChange(task.id, e.target.value)}
-                  >
-                    <option value="NotDone">Not Done</option>
-                    <option value="Running">Running</option>
-                    <option value="Done">Done</option>
-                  </select>
-                  <button
-                    className="btn-ghost"
-                    onClick={() => navigate('/add-temp-task', {
-                      state: {
-                        sessionId,
-                        tempTask: { id: task.tempTaskId, taskTitle: task.taskTitle, targetDate: session.shiftDate, targetShiftId: session.shiftId },
-                      },
-                    })}
-                  >
-                    Edit
-                  </button>
-                  <button className="btn-danger" onClick={() => setDeleteTarget({ type: 'tempTask', id: task.tempTaskId })}>Delete</button>
-                </div>
+                <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
               </div>
             ))}
           </div>
@@ -260,16 +241,16 @@ function DashboardPage() {
               <h3 style={{ margin: 0 }}>Notes</h3>
               <button className="btn-ghost" onClick={() => navigate('/add-note', { state: { sessionId } })}>+ Add</button>
             </div>
-            {notes.length === 0 && <p>No notes for this shift.</p>}
+            {notes.length === 0 && <p style={{ marginTop: 12 }}>No notes for this shift.</p>}
             {notes.map((n) => (
               <div className="list-row" key={n.id}>
                 <span>{n.noteText}</span>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <button className="btn-ghost" onClick={() => handleCarryForward(n.id)}>Carry to Next Shift</button>
                   {!n.isDelivered && (
                     <>
                       <button className="btn-ghost" onClick={() => navigate('/add-note', { state: { sessionId, note: n } })}>Edit</button>
-                      <button className="btn-danger" onClick={() => setDeleteTarget({ type: 'note', id: n.id })}>Delete</button>
+                      <button className="btn-danger" onClick={() => setDeleteTarget(n)}>Delete</button>
                     </>
                   )}
                 </div>
@@ -278,7 +259,7 @@ function DashboardPage() {
           </div>
 
           <div className="btn-row" style={{ marginTop: 24 }}>
-            <button className="btn-danger" style={{ marginLeft: 'auto' }} onClick={handleEndShiftClick} disabled={ending}>
+            <button className="btn-danger" style={{ marginLeft: 'auto' }} onClick={() => setShowEndConfirm(true)} disabled={ending}>
               {ending ? 'Ending...' : 'End Shift'}
             </button>
           </div>
@@ -299,7 +280,7 @@ function DashboardPage() {
       {deleteTarget && (
         <ConfirmModal
           title="Confirm Delete"
-          message="Are you sure you want to delete this? This cannot be undone."
+          message="Are you sure you want to delete this note?"
           confirmLabel="Yes, Delete"
           cancelLabel="Cancel"
           onConfirm={confirmDelete}

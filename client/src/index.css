@@ -523,3 +523,85 @@ select.status-select {
 @media (prefers-reduced-motion: reduce) {
   * { transition: none !important; animation: none !important; }
 }
+
+/* ============================================
+   Status buttons (replaces dropdown)
+   ============================================ */
+.status-buttons {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.status-btn {
+  border: none;
+  border-right: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  font-size: 12px;
+}
+.status-btn:last-child { border-right: none; }
+.status-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+.status-btn.active-notdone { background: var(--status-notdone-dim); color: var(--status-notdone); font-weight: 600; }
+.status-btn.active-running { background: var(--status-running-dim); color: var(--status-running); font-weight: 600; }
+.status-btn.active-done { background: var(--status-done-dim); color: var(--status-done); font-weight: 600; }
+
+/* ============================================
+   Shift banner (Dashboard)
+   ============================================ */
+.shift-banner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  margin-bottom: var(--space-4);
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-5);
+  align-items: center;
+}
+
+.shift-banner-name {
+  font-family: var(--font-mono);
+  font-size: 32px;
+  font-weight: 600;
+  margin: 4px 0 var(--space-3) 0;
+  color: var(--text-primary);
+}
+
+.shift-banner-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+.chip-list { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.chip {
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  font-size: 14px;
+}
+
+.chip-you {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+@media (max-width: 640px) {
+  .shift-banner { grid-template-columns: 1fr; padding: var(--space-4); }
+  .shift-banner-name { font-size: 26px; }
+  .status-buttons { width: 100%; }
+  .status-btn { flex: 1; padding: 10px 6px; }
+}

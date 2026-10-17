@@ -1,12 +1,11 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
-const requireRole = require('../middleware/role.middleware');
 
 const router = express.Router();
 
-// GET /api/reports/search?date=2026-08-04&shiftId=1
-router.get('/search', authMiddleware, requireRole('Admin', 'Manager'), async (req, res) => {
+// GET /api/reports/search?date=2026-08-04&shiftId=1 — any logged-in user
+router.get('/search', authMiddleware, async (req, res) => {
   try {
     const { date, shiftId } = req.query;
 
@@ -17,10 +16,7 @@ router.get('/search', authMiddleware, requireRole('Admin', 'Manager'), async (re
     const targetDate = new Date(date);
 
     const session = await prisma.shiftSession.findFirst({
-      where: {
-        shiftDate: targetDate,
-        shiftId: parseInt(shiftId, 10),
-      },
+      where: { shiftDate: targetDate, shiftId: parseInt(shiftId, 10) },
       include: {
         shift: true,
         employees: { include: { user: true } },

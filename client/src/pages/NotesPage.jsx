@@ -1,22 +1,26 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getAllNotes, deleteNote , getMyActiveShift} from '../api/shifts';
+import { getAllNotes, deleteNote, getMyActiveShift } from '../api/shifts';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 
 function NotesPage() {
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+
   const [notes, setNotes] = useState([]);
+  const [activeShift, setActiveShift] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
-  const [toast, setToast] = useState(null);
-
-const [activeShift, setActiveShift] = useState(null);
+  const [toast, setToast] = useState(
+    location.state?.flash ? { message: location.state.flash, type: 'success' } : null
+  );
 
   useEffect(() => {
+    if (location.state?.flash) navigate(location.pathname, { replace: true, state: {} });
     load();
     getMyActiveShift().then(setActiveShift).catch(() => {});
   }, []);
@@ -80,7 +84,7 @@ const [activeShift, setActiveShift] = useState(null);
             <div>
               <div>{n.noteText}</div>
               <div className="readout">
-                {new Date(n.targetDate).toLocaleDateString()} · {n.targetShift?.name}
+                {new Date(n.targetDate).toLocaleDateString(undefined, { timeZone: 'UTC' })} · {n.targetShift?.name}
                 {n.isDelivered && <span className="badge badge-inactive" style={{ marginLeft: 8 }}>Delivered</span>}
               </div>
             </div>

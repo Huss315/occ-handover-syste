@@ -6,12 +6,11 @@ function AddNotePage() {
   const navigate = useNavigate();
   const location = useLocation();
   const sessionId = location.state?.sessionId;
-  const editingNote = location.state?.note; // if present, we're editing
+  const editingNote = location.state?.note;
+  const backTo = sessionId ? '/dashboard' : '/notes';
 
   const [shifts, setShifts] = useState([]);
-  const [targetDate, setTargetDate] = useState(
-    editingNote ? editingNote.targetDate.split('T')[0] : ''
-  );
+  const [targetDate, setTargetDate] = useState(editingNote ? editingNote.targetDate.split('T')[0] : '');
   const [targetShiftId, setTargetShiftId] = useState(editingNote?.targetShiftId || '');
   const [noteText, setNoteText] = useState(editingNote?.noteText || '');
   const [error, setError] = useState('');
@@ -35,7 +34,11 @@ function AddNotePage() {
       } else {
         await createNote(noteText, targetDate, parseInt(targetShiftId, 10));
       }
-        navigate(sessionId ? '/dashboard' : '/notes', { state: { sessionId } });    } catch (err) {
+      navigate(backTo, {
+        replace: true,
+        state: { sessionId, flash: editingNote ? 'Note updated successfully.' : 'Note added successfully.' },
+      });
+    } catch (err) {
       setError(err.response?.data?.error || 'Failed to save note.');
       setSaving(false);
     }
@@ -71,7 +74,7 @@ function AddNotePage() {
           <button type="submit" className="btn-primary" disabled={saving} style={{ flex: 1 }}>
             {saving ? 'Saving...' : editingNote ? 'Update' : 'Save'}
           </button>
-          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() =>navigate(sessionId ? '/dashboard' : '/notes', { state: { sessionId } })}>
+          <button type="button" className="btn-ghost" style={{ flex: 1 }} onClick={() => navigate(backTo, { state: { sessionId } })}>
             Cancel
           </button>
         </div>
