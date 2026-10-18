@@ -6,6 +6,7 @@ import {
   getFixedTasks, createFixedTask, deactivateFixedTask,
   getFixedNotes, createFixedNote, deactivateFixedNote,
   getShiftsList,
+  resetUserPassword,
 } from '../api/shifts';
 import Toast from '../components/Toast';
 
@@ -25,6 +26,10 @@ function AdminDashboardPage() {
   const [fixedNotes, setFixedNotes] = useState([]);
   const [newNote, setNewNote] = useState({ noteText: '', shiftId: '' });
 
+  const [resetTarget, setResetTarget] = useState(null);
+  const [resetPassword, setResetPassword] = useState('');
+  const [resetError, setResetError] = useState('');
+
   useEffect(() => {
     getShiftsList().then(setShifts).catch(() => {});
   }, []);
@@ -38,7 +43,8 @@ function AdminDashboardPage() {
     try { setFixedTasks(await getFixedTasks()); setView('tasks'); }
     catch { setError('Failed to load fixed tasks.'); }
   }
-async function loadNotes() {
+
+  async function loadNotes() {
     try { setFixedNotes(await getFixedNotes()); setView('notes'); }
     catch { setError('Failed to load fixed notes.'); }
   }
@@ -60,6 +66,7 @@ async function loadNotes() {
     try { await deactivateFixedNote(id); setToast({ message: 'Fixed note deactivated.', type: 'success' }); loadNotes(); }
     catch { setError('Failed to deactivate fixed note.'); }
   }
+
   async function handleCreateUser(e) {
     e.preventDefault();
     setError('');
@@ -76,6 +83,19 @@ async function loadNotes() {
   async function handleDeactivateUser(id) {
     try { await deactivateUser(id); setToast({ message: 'User deactivated.', type: 'success' }); loadUsers(); }
     catch { setError('Failed to deactivate user.'); }
+  }
+
+  async function handleResetPassword(e) {
+    e.preventDefault();
+    setResetError('');
+    try {
+      await resetUserPassword(resetTarget.id, resetPassword);
+      setToast({ message: `Password updated for ${resetTarget.fullName}.`, type: 'success' });
+      setResetTarget(null);
+      setResetPassword('');
+    } catch (err) {
+      setResetError(err.response?.data?.error || 'Failed to reset password.');
+    }
   }
 
   async function handleCreateTask(e) {
@@ -147,7 +167,17 @@ async function loadNotes() {
             {users.map((u) => (
               <div className="list-row" key={u.id}>
                 <span>{u.fullName} <span className="readout">({u.username}) · {u.role.name}</span> {!u.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
-                {u.isActive && <button className="btn-danger" onClick={() => handleDeactivateUser(u.id)}>Deactivate</button>}
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    className="btn-ghost"
+                    disabled={!u.isActive}
+                    title={!u.isActive ? 'Inactive users cannot be reset' : ''}
+                    onClick={() => { setResetTarget(u); setResetPassword(''); setResetError(''); }}
+                  >
+                    Reset Password
+                  </button>
+                  {u.isActive && <button className="btn-danger" onClick={() => handleDeactivateUser(u.id)}>Deactivate</button>}
+                </div>
               </div>
             ))}
           </div>
@@ -187,6 +217,7 @@ async function loadNotes() {
           </div>
         </>
       )}
+
       {view === 'notes' && (
         <>
           <button className="btn-ghost" style={{ marginBottom: 16 }} onClick={() => setView('menu')}>← Back</button>
@@ -218,6 +249,31 @@ async function loadNotes() {
             ))}
           </div>
         </>
+      )}
+
+      {resetTarget && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Reset password</h3>
+            <p>New password for {resetTarget.fullName} ({resetTarget.username})</p>
+            <form onSubmit={handleResetPassword}>
+              <div className="field">
+                <input
+                  type="password"
+                  placeholder="New password (min 6 characters)"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {resetError && <p className="error-text">{resetError}</p>}
+              <div className="btn-row" style={{ justifyContent: 'center' }}>
+                <button type="submit" className="btn-primary">Save</button>
+                <button type="button" className="btn-ghost" onClick={() => setResetTarget(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}

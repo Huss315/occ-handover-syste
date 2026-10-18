@@ -303,4 +303,40 @@ router.patch('/fixed-notes/:id/deactivate', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deactivating the fixed note.' });
   }
 });
+
+// PATCH /api/admin/users/:id/password — Admin sets a new password for any user
+router.patch('/users/:id/password', async (req, res) => {
+  try {
+    const userId = parseInt(req.params.id, 10);
+    const { newPassword } = req.body;
+
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: 'Password must be at least 6 characters.' });
+    }
+
+    const passwordHash = await bcrypt.hash(newPassword, 10);
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'AdminChange',
+        entityName: 'User',
+        entityId: userId,
+        details: `Reset password for user ${updated.username}`,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    if (err.code === 'P2025') {
+      return res.status(404).json({ error: 'User not found.' });
+    }
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong resetting the password.' });
+  }
+});
 module.exports = router;

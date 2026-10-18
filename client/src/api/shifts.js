@@ -122,3 +122,7 @@ export async function carryNoteForward(id) {
   const res = await apiClient.post(`/notes/${id}/carry-forward`);
   return res.data.note;
 }
+export async function resetUserPassword(userId, newPassword) {
+  const res = await apiClient.patch(`/admin/users/${userId}/password`, { newPassword });
+  return res.data;
+}
