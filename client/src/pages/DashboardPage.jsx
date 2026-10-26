@@ -1,15 +1,30 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { updateTaskStatus, endShift, getSession, getPreviousShift, deleteNote, carryNoteForward } from '../api/shifts';
+import {
+  updateTaskStatus, endShift, getSession, getPreviousShift,
+  deleteNote, carryNoteForward, getEmployeesList, addShiftEmployees,
+} from '../api/shifts';
 import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 import StatusButtons from '../components/StatusButtons';
 
+const MAX_EMPLOYEES = 4;
+const AUTO_REFRESH_MS = 10 * 60 * 1000; // 10 minutes
+const STATUS_ORDER = { NotDone: 0, Running: 1, Done: 2, Ignore: 3 };
+
 function statusLed(status) {
   if (status === 'Done') return 'led-done';
   if (status === 'Running') return 'led-running';
+  if (status === 'Ignore') return 'led-ignore';
   return 'led-notdone';
+}
+
+// Not Done first, then Running, then Done, then Ignore
+function sortTasks(list) {
+  return [...list].sort(
+    (a, b) => (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9) || a.id - b.id
+  );
 }
 
 function DashboardPage() {
@@ -32,7 +47,19 @@ function DashboardPage() {
     location.state?.flash ? { message: location.state.flash, type: 'success' } : null
   );
 
-  // Clear the one-time success message from history so a refresh doesn't show it again
+  // Ignore reason popup
+  const [ignoreTarget, setIgnoreTarget] = useState(null);
+  const [ignoreText, setIgnoreText] = useState('');
+  const [ignoreError, setIgnoreError] = useState('');
+
+  // Add employee popup
+  const [showAddEmployee, setShowAddEmployee] = useState(false);
+  const [allEmployees, setAllEmployees] = useState([]);
+  const [toAdd, setToAdd] = useState([]);
+  const [addError, setAddError] = useState('');
+  const [adding, setAdding] = useState(false);
+
+  // Clear the one-time success message so a refresh doesn't show it again
   useEffect(() => {
     if (location.state?.flash) {
       navigate(location.pathname, { replace: true, state: { sessionId } });
@@ -45,33 +72,118 @@ function DashboardPage() {
       setLoading(false);
       return;
     }
+
     loadSessionData();
+
+    // Reload every 10 minutes, and whenever the tab becomes visible again
+    const timer = setInterval(() => loadSessionData(true), AUTO_REFRESH_MS);
+    function onVisible() {
+      if (document.visibilityState === 'visible') loadSessionData(true);
+    }
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [sessionId]);
 
-  async function loadSessionData() {
+  async function loadSessionData(silent = false) {
     try {
       const [sessionData, previousData] = await Promise.all([
         getSession(sessionId),
         getPreviousShift(),
       ]);
+
+      if (silent && sessionData.status === 'Ended') {
+        setToast({ message: 'This shift was ended by a teammate.', type: 'success' });
+        setTimeout(() => navigate('/shift-start'), 2000);
+        return;
+      }
+
       setSession(sessionData);
       setTasks(sessionData.tasks);
       setNotes(sessionData.notes || []);
       setFixedNotes(sessionData.shift?.fixedNotes || []);
       setPrevious(previousData);
-      setLoading(false);
     } catch (err) {
-      setError('Failed to load shift data.');
+      if (!silent) setError('Failed to load shift data.');
+    } finally {
       setLoading(false);
     }
   }
 
-  async function handleStatusChange(taskId, newStatus) {
+  // Ignore needs a reason first, every other status saves right away
+  function handleStatusClick(task, newStatus) {
+    if (newStatus === 'Ignore') {
+      setIgnoreTarget(task);
+      setIgnoreText('');
+      setIgnoreError('');
+      return;
+    }
+    saveStatus(task.id, newStatus);
+  }
+
+  async function saveStatus(taskId, newStatus, reason) {
     try {
-      const updated = await updateTaskStatus(taskId, newStatus);
+      const updated = await updateTaskStatus(taskId, newStatus, reason);
       setTasks((prev) => prev.map((t) => (t.id === taskId ? updated : t)));
+      return true;
     } catch (err) {
-      setError('Failed to update task status.');
+      setToast({ message: err.response?.data?.error || 'Failed to update task status.', type: 'error' });
+      return false;
+    }
+  }
+
+  async function confirmIgnore(e) {
+    e.preventDefault();
+    if (!ignoreText.trim()) {
+      setIgnoreError('Please write why this task is ignored.');
+      return;
+    }
+    const ok = await saveStatus(ignoreTarget.id, 'Ignore', ignoreText.trim());
+    if (ok) setIgnoreTarget(null);
+  }
+
+  async function openAddEmployee() {
+    setAddError('');
+    setToAdd([]);
+    try {
+      setAllEmployees(await getEmployeesList());
+      setShowAddEmployee(true);
+    } catch {
+      setToast({ message: 'Failed to load employees.', type: 'error' });
+    }
+  }
+
+  function toggleToAdd(id) {
+    const slotsLeft = MAX_EMPLOYEES - session.employees.length;
+    setToAdd((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= slotsLeft) {
+        setAddError(`A shift can have at most ${MAX_EMPLOYEES} employees.`);
+        return prev;
+      }
+      setAddError('');
+      return [...prev, id];
+    });
+  }
+
+  async function confirmAddEmployees() {
+    if (toAdd.length === 0) {
+      setAddError('Select at least one employee.');
+      return;
+    }
+    setAdding(true);
+    try {
+      const employees = await addShiftEmployees(sessionId, toAdd);
+      setSession((prev) => ({ ...prev, employees }));
+      setShowAddEmployee(false);
+      setToast({ message: 'Employees added to the shift.', type: 'success' });
+    } catch (err) {
+      setAddError(err.response?.data?.error || 'Failed to add employees.');
+    } finally {
+      setAdding(false);
     }
   }
 
@@ -80,7 +192,8 @@ function DashboardPage() {
     setEnding(true);
     try {
       await endShift(sessionId);
-setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTimeout(() => navigate('/shift-start'), 1500);
+      setToast({ message: 'Shift ended. Report saved.', type: 'success' });
+      setTimeout(() => navigate('/shift-start'), 1500);
     } catch (err) {
       setError(err.response?.data?.error || 'Failed to end shift.');
       setEnding(false);
@@ -109,11 +222,28 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
     }
   }
 
+  function renderTaskRow(task) {
+    return (
+      <div className="status-row" key={task.id}>
+        <div className="status-label">
+          <span className={`led ${statusLed(task.status)}`}></span>
+          <div>
+            <div className="status-title">{task.taskTitle}</div>
+            {task.status === 'Ignore' && task.ignoreReason && (
+              <div className="ignore-reason">Ignored: {task.ignoreReason}</div>
+            )}
+          </div>
+        </div>
+        <StatusButtons value={task.status} onChange={(s) => handleStatusClick(task, s)} />
+      </div>
+    );
+  }
+
   if (loading) return <div className="page"><p>Loading...</p></div>;
 
-  const mainTasks = tasks.filter((t) => t.taskType === 'Fixed');
-  const tempTasks = tasks.filter((t) => t.taskType === 'Temporary');
-  const carryForwardTasks = tasks.filter((t) => t.taskType === 'CarryForward');
+  const mainTasks = sortTasks(tasks.filter((t) => t.taskType === 'Fixed'));
+  const tempTasks = sortTasks(tasks.filter((t) => t.taskType === 'Temporary'));
+  const carryForwardTasks = sortTasks(tasks.filter((t) => t.taskType === 'CarryForward'));
 
   const shiftDateLabel = session
     ? new Date(session.shiftDate).toLocaleDateString(undefined, {
@@ -123,6 +253,10 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
   const startedLabel = session
     ? new Date(session.startedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     : '';
+
+  const currentIds = session ? session.employees.map((e) => e.userId) : [];
+  const addableEmployees = allEmployees.filter((emp) => !currentIds.includes(emp.id));
+  const shiftIsFull = session && session.employees.length >= MAX_EMPLOYEES;
 
   return (
     <div className="page page-wide">
@@ -147,7 +281,7 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
 
       {sessionId && session && (
         <>
-          {/* Shift details — big and visible */}
+          {/* Shift details */}
           <div className="shift-banner">
             <div>
               <div className="readout">Current Shift</div>
@@ -155,12 +289,21 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
               <div className="shift-banner-meta">
                 <span>{shiftDateLabel}</span>
                 <span>Started {startedLabel}</span>
-                <span>Session #{sessionId}</span>
               </div>
             </div>
             <div>
-              <div className="readout" style={{ marginBottom: 8 }}>
-                Team on shift ({session.employees.length})
+              <div className="card-head" style={{ marginBottom: 8 }}>
+                <div className="readout">
+                  Team on shift ({session.employees.length}/{MAX_EMPLOYEES})
+                </div>
+                <button
+                  className="btn-ghost btn-small"
+                  onClick={openAddEmployee}
+                  disabled={shiftIsFull}
+                  title={shiftIsFull ? 'This shift already has 4 employees' : ''}
+                >
+                  + Add Employee
+                </button>
               </div>
               <div className="chip-list">
                 {session.employees.map((e) => (
@@ -172,13 +315,15 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
             </div>
           </div>
 
-          <div className="card">
-            <h3>Fixed Notes</h3>
-            {fixedNotes.length === 0 && <p>No fixed notes for this shift.</p>}
-            {fixedNotes.map((n) => (
-              <p key={n.id} style={{ fontSize: 13, marginBottom: 6 }}>— {n.noteText}</p>
-            ))}
-          </div>
+          {/* Fixed notes — big and clear */}
+          {fixedNotes.length > 0 && (
+            <div className="card fixed-notes-card">
+              <h3>Fixed Notes</h3>
+              {fixedNotes.map((n) => (
+                <div key={n.id} className="fixed-note-item">{n.noteText}</div>
+              ))}
+            </div>
+          )}
 
           {/* Previous shift section only appears if something was carried forward */}
           {carryForwardTasks.length > 0 && (
@@ -189,67 +334,40 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
                   From {previous.previousSession.shiftName} · {new Date(previous.previousSession.shiftDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}
                 </p>
               )}
-              {carryForwardTasks.map((task) => (
-                <div className="status-row" key={task.id}>
-                  <div className="status-label">
-                    <span className={`led ${statusLed(task.status)}`}></span>
-                    <span className="status-title">{task.taskTitle}</span>
-                  </div>
-                  <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
-                </div>
-              ))}
+              {carryForwardTasks.map(renderTaskRow)}
             </div>
           )}
 
           <div className="card">
             <h3>Tasks</h3>
             {mainTasks.length === 0 && <p>No tasks for this shift.</p>}
-            {mainTasks.map((task) => (
-              <div className="status-row" key={task.id}>
-                <div className="status-label">
-                  <span className={`led ${statusLed(task.status)}`}></span>
-                  <div>
-                    <div className="status-title">{task.taskTitle}</div>
-                    <div className="status-type">{task.taskType}</div>
-                  </div>
-                </div>
-                <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
-              </div>
-            ))}
+            {mainTasks.map(renderTaskRow)}
           </div>
 
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0 }}>Temporary Tasks</h3>
-              <button className="btn-ghost" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>+ Add</button>
+            <div className="card-head">
+              <h3>Temporary Tasks</h3>
+              <button className="btn-ghost btn-small" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>+ Add</button>
             </div>
-            {tempTasks.length === 0 && <p style={{ marginTop: 12 }}>No temporary tasks for this shift.</p>}
-            {tempTasks.map((task) => (
-              <div className="status-row" key={task.id}>
-                <div className="status-label">
-                  <span className={`led ${statusLed(task.status)}`}></span>
-                  <span className="status-title">{task.taskTitle}</span>
-                </div>
-                <StatusButtons value={task.status} onChange={(s) => handleStatusChange(task.id, s)} />
-              </div>
-            ))}
+            {tempTasks.length === 0 && <p>No temporary tasks for this shift.</p>}
+            {tempTasks.map(renderTaskRow)}
           </div>
 
           <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ margin: 0 }}>Notes</h3>
-              <button className="btn-ghost" onClick={() => navigate('/add-note', { state: { sessionId } })}>+ Add</button>
+            <div className="card-head">
+              <h3>Notes</h3>
+              <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId } })}>+ Add</button>
             </div>
-            {notes.length === 0 && <p style={{ marginTop: 12 }}>No notes for this shift.</p>}
+            {notes.length === 0 && <p>No notes for this shift.</p>}
             {notes.map((n) => (
               <div className="list-row" key={n.id}>
                 <span>{n.noteText}</span>
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn-ghost" onClick={() => handleCarryForward(n.id)}>Carry to Next Shift</button>
+                  <button className="btn-ghost btn-small" onClick={() => handleCarryForward(n.id)}>Carry to Next Shift</button>
                   {!n.isDelivered && (
                     <>
-                      <button className="btn-ghost" onClick={() => navigate('/add-note', { state: { sessionId, note: n } })}>Edit</button>
-                      <button className="btn-danger" onClick={() => setDeleteTarget(n)}>Delete</button>
+                      <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId, note: n } })}>Edit</button>
+                      <button className="btn-danger btn-small" onClick={() => setDeleteTarget(n)}>Delete</button>
                     </>
                   )}
                 </div>
@@ -263,6 +381,66 @@ setToast({ message: 'Shift ended. Report saved.', type: 'success' });      setTi
             </button>
           </div>
         </>
+      )}
+
+      {/* Ignore reason popup */}
+      {ignoreTarget && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Ignore task</h3>
+            <p>{ignoreTarget.taskTitle}</p>
+            <form onSubmit={confirmIgnore}>
+              <div className="field">
+                <label>Reason</label>
+                <textarea
+                  value={ignoreText}
+                  onChange={(e) => setIgnoreText(e.target.value)}
+                  rows={3}
+                  placeholder="Why is this task ignored?"
+                  autoFocus
+                />
+              </div>
+              {ignoreError && <p className="error-text">{ignoreError}</p>}
+              <div className="btn-row" style={{ justifyContent: 'center' }}>
+                <button type="submit" className="btn-primary">Save</button>
+                <button type="button" className="btn-ghost" onClick={() => setIgnoreTarget(null)}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add employee popup */}
+      {showAddEmployee && session && (
+        <div className="modal-overlay">
+          <div className="modal-card">
+            <h3>Add employees to this shift</h3>
+            <p>{MAX_EMPLOYEES - session.employees.length} place(s) left</p>
+            {addableEmployees.length === 0 ? (
+              <p>No other employees available.</p>
+            ) : (
+              <div className="checklist" style={{ textAlign: 'left' }}>
+                {addableEmployees.map((emp) => (
+                  <label key={emp.id} className="checklist-item">
+                    <input
+                      type="checkbox"
+                      checked={toAdd.includes(emp.id)}
+                      onChange={() => toggleToAdd(emp.id)}
+                    />
+                    <span>{emp.fullName} ({emp.username})</span>
+                  </label>
+                ))}
+              </div>
+            )}
+            {addError && <p className="error-text" style={{ marginTop: 12 }}>{addError}</p>}
+            <div className="btn-row" style={{ justifyContent: 'center', marginTop: 16 }}>
+              <button className="btn-primary" onClick={confirmAddEmployees} disabled={adding}>
+                {adding ? 'Adding...' : 'Add'}
+              </button>
+              <button className="btn-ghost" onClick={() => setShowAddEmployee(false)}>Cancel</button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showEndConfirm && (

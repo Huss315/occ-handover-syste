@@ -1,5 +1,15 @@
 import apiClient from './client';
 
+export async function addShiftEmployees(sessionId, employeeIds) {
+  const res = await apiClient.post(`/shifts/${sessionId}/employees`, { employeeIds });
+  return res.data.employees;
+}
+
+export async function refreshSession() {
+  const res = await apiClient.post('/auth/refresh');
+  return res.data;
+}
+
 export async function getShiftsList() {
   const res = await apiClient.get('/shifts/list');
   return res.data.shifts;
@@ -19,8 +29,8 @@ export async function startShift(shiftId, employeeIds) {
   const res = await apiClient.post('/shifts/start', { shiftId, employeeIds });
   return res.data;
 }
-export async function updateTaskStatus(taskId, status) {
-  const res = await apiClient.patch(`/tasks/${taskId}`, { status });
+export async function updateTaskStatus(taskId, status, ignoreReason) {
+  const res = await apiClient.patch(`/tasks/${taskId}`, { status, ignoreReason });
   return res.data.task;
 }
 

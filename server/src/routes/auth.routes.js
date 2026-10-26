@@ -39,7 +39,7 @@ router.post('/login', async (req, res) => {
         role: user.role.name,
       },
       process.env.JWT_SECRET,
-      { expiresIn: '8h' }
+      { expiresIn: '12h' }
     );
 
     res.json({
@@ -57,6 +57,39 @@ router.post('/login', async (req, res) => {
   }
 });
 
+// POST /api/auth/refresh — issue a fresh token for a logged-in, still-active user
+router.post('/refresh', authMiddleware, async (req, res) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.user.userId },
+      include: { role: true },
+    });
+
+    if (!user || !user.isActive) {
+      return res.status(401).json({ error: 'Account is no longer active.' });
+    }
+
+    const token = jwt.sign(
+      { userId: user.id, username: user.username, role: user.role.name },
+      process.env.JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    res.json({
+      token,
+      user: {
+        id: user.id,
+        fullName: user.fullName,
+        username: user.username,
+        role: user.role.name,
+      },
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong refreshing the session.' });
+  }
+});
+
 router.get('/me', authMiddleware, (req, res) => {
   res.json({ user: req.user });
 });
@@ -65,7 +98,7 @@ router.get('/admin-only', authMiddleware, requireRole('Admin'), (req, res) => {
   res.json({ message: 'Welcome, Admin! This route is protected by role.' });
 });
 
-// GET /api/auth/employees — any active user, for employee-selection dropdowns
+// GET /api/auth/employees — active non-Admin users, for employee-selection lists
 router.get('/employees', authMiddleware, async (req, res) => {
   try {
     const employees = await prisma.user.findMany({

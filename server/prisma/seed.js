@@ -30,9 +30,9 @@ async function main() {
     create: { name: 'Morning' },
   });
   await prisma.shift.upsert({
-    where: { name: 'Evening' },
+    where: { name: 'Afternoon' },
     update: {},
-    create: { name: 'Evening' },
+    create: { name: 'Afternoon' },
   });
   await prisma.shift.upsert({
     where: { name: 'Night' },

@@ -155,7 +155,9 @@ function ShiftStartPage() {
             <p className="readout" style={{ marginBottom: 12 }}>
               {previousShift.previousSession.shiftName} — {new Date(previousShift.previousSession.shiftDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}
             </p>
-            {previousShift.carryForwardTasks.map((t) => (
+            {[...previousShift.carryForwardTasks]
+              .sort((a, b) => (a.status === 'NotDone' ? 0 : 1) - (b.status === 'NotDone' ? 0 : 1) || a.id - b.id)
+              .map((t) => (
               <div className="status-row" key={t.id}>
                 <div className="status-label">
                   <span className={`led ${statusLed(t.status)}`}></span>

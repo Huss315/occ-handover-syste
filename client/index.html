@@ -5,6 +5,13 @@
     <link rel="icon" type="image/png" href="/afs_logo.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OCC Handover System</title>
+    <script>
+  try {
+    document.documentElement.setAttribute('data-theme', localStorage.getItem('occ_theme') || 'light');
+  } catch (e) {
+    document.documentElement.setAttribute('data-theme', 'light');
+  }
+</script>
   </head>
   <body>
     <div id="root"></div>

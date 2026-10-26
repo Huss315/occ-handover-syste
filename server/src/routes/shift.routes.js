@@ -4,16 +4,19 @@ const authMiddleware = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-// GET /api/shifts/list
+const MAX_EMPLOYEES = 4;
+
+// GET /api/shifts/list — ordered Morning, Afternoon, Night
 router.get('/list', authMiddleware, async (req, res) => {
   try {
-    const shifts = await prisma.shift.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } });
+    const shifts = await prisma.shift.findMany({ where: { isActive: true }, orderBy: { id: 'asc' } });
     res.json({ shifts });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong fetching shifts.' });
   }
 });
+
 // GET /api/shifts/my-active — find any Started session this user is part of
 router.get('/my-active', authMiddleware, async (req, res) => {
   try {
@@ -69,6 +72,7 @@ router.get('/previous', authMiddleware, async (req, res) => {
   }
 });
 
+// GET /api/shifts/:sessionId — full session details
 router.get('/:sessionId', authMiddleware, async (req, res) => {
   try {
     const sessionId = parseInt(req.params.sessionId, 10);
@@ -109,15 +113,16 @@ router.post('/start', authMiddleware, async (req, res) => {
     if (!shiftId || !employeeIds || employeeIds.length < 1) {
       return res.status(400).json({ error: 'shiftId and at least one employee are required.' });
     }
-    if (employeeIds.length > 4) {
-      return res.status(400).json({ error: 'A shift can have at most 4 employees.' });
+    if (employeeIds.length > MAX_EMPLOYEES) {
+      return res.status(400).json({ error: `A shift can have at most ${MAX_EMPLOYEES} employees.` });
     }
 
     const now = new Date();
     const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
 
     const [existing, fixedTasks, fixedNotes, dueNotes, dueTempTasks, lastSession] = await Promise.all([
-prisma.shiftSession.findFirst({ where: { shiftId, shiftDate: today } }),      prisma.fixedTask.findMany({ where: { shiftId, isActive: true } }),
+      prisma.shiftSession.findFirst({ where: { shiftId, shiftDate: today } }),
+      prisma.fixedTask.findMany({ where: { shiftId, isActive: true } }),
       prisma.fixedNote.findMany({ where: { shiftId, isActive: true } }),
       prisma.handoverNote.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } }),
       prisma.temporaryTask.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } }),
@@ -128,7 +133,7 @@ prisma.shiftSession.findFirst({ where: { shiftId, shiftDate: today } }),      pr
       }),
     ]);
 
-   if (existing) {
+    if (existing) {
       const msg = existing.status === 'Started'
         ? 'A shift session for this date and shift is already active.'
         : 'A shift session for this date and shift has already been completed today.';
@@ -188,6 +193,83 @@ prisma.shiftSession.findFirst({ where: { shiftId, shiftDate: today } }),      pr
   }
 });
 
+// POST /api/shifts/:sessionId/employees — add employees to a running shift
+// Body: { employeeIds: [3, 4] }
+router.post('/:sessionId/employees', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role === 'Admin') {
+      return res.status(403).json({ error: 'Admin accounts cannot change shift employees.' });
+    }
+
+    const sessionId = parseInt(req.params.sessionId, 10);
+    const { employeeIds } = req.body;
+
+    if (!Array.isArray(employeeIds) || employeeIds.length === 0) {
+      return res.status(400).json({ error: 'Please select at least one employee to add.' });
+    }
+
+    const session = await prisma.shiftSession.findUnique({
+      where: { id: sessionId },
+      include: { employees: true },
+    });
+
+    if (!session) return res.status(404).json({ error: 'Shift session not found.' });
+    if (session.status !== 'Started') {
+      return res.status(400).json({ error: 'Employees can only be added while the shift is running.' });
+    }
+
+    const isEmployeeOfShift = session.employees.some((e) => e.userId === req.user.userId);
+    if (!isEmployeeOfShift) {
+      return res.status(403).json({ error: 'Only employees in this shift can add others.' });
+    }
+
+    const currentIds = session.employees.map((e) => e.userId);
+    const newIds = [...new Set(employeeIds.map((id) => parseInt(id, 10)))]
+      .filter((id) => !currentIds.includes(id));
+
+    if (newIds.length === 0) {
+      return res.status(400).json({ error: 'Those employees are already in this shift.' });
+    }
+    if (currentIds.length + newIds.length > MAX_EMPLOYEES) {
+      return res.status(400).json({ error: `A shift can have at most ${MAX_EMPLOYEES} employees.` });
+    }
+
+    // Only active, non-Admin users can be added
+    const validUsers = await prisma.user.findMany({
+      where: { id: { in: newIds }, isActive: true, role: { name: { not: 'Admin' } } },
+      select: { id: true, fullName: true },
+    });
+    if (validUsers.length !== newIds.length) {
+      return res.status(400).json({ error: 'One or more selected employees cannot be added.' });
+    }
+
+    await prisma.shiftEmployee.createMany({
+      data: newIds.map((userId) => ({ sessionId, userId })),
+      skipDuplicates: true,
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'Update',
+        entityName: 'ShiftSession',
+        entityId: sessionId,
+        details: `Added employees: ${validUsers.map((u) => u.fullName).join(', ')}`,
+      },
+    });
+
+    const employees = await prisma.shiftEmployee.findMany({
+      where: { sessionId },
+      include: { user: true },
+    });
+
+    res.status(201).json({ employees });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong adding employees.' });
+  }
+});
+
 // POST /api/shifts/:sessionId/end
 router.post('/:sessionId/end', authMiddleware, async (req, res) => {
   try {
@@ -221,6 +303,7 @@ router.post('/:sessionId/end', authMiddleware, async (req, res) => {
     const doneTasks = session.tasks.filter((t) => t.status === 'Done');
     const runningTasks = session.tasks.filter((t) => t.status === 'Running');
     const notDoneTasks = session.tasks.filter((t) => t.status === 'NotDone');
+    const ignoredTasks = session.tasks.filter((t) => t.status === 'Ignore');
 
     const reportContent = `
 OCC Shift Handover Report
@@ -237,6 +320,9 @@ ${runningTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
 NOT DONE TASKS:
 ${notDoneTasks.map((t) => `- ${t.taskTitle}`).join('\n') || 'None'}
 
+IGNORED TASKS:
+${ignoredTasks.map((t) => `- ${t.taskTitle} (Reason: ${t.ignoreReason || 'not given'})`).join('\n') || 'None'}
+
 NOTES:
 ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
     `.trim();
@@ -250,7 +336,6 @@ ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
         emailSent: false,
       },
     });
-
 
     await prisma.auditLog.create({
       data: { userId: req.user.userId, actionType: 'EndShift', entityName: 'ShiftSession', entityId: session.id, details: 'Shift ended and report generated.' },

@@ -4,41 +4,49 @@ const authMiddleware = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
+const ALLOWED_STATUSES = ['NotDone', 'Running', 'Done', 'Ignore'];
+
 // PATCH /api/tasks/:id
-// Body: { status: "Running" }  -- allowed values: NotDone, Running, Done
+// Body: { status: "Running" }
+// Body: { status: "Ignore", ignoreReason: "Vendor postponed maintenance" }
 router.patch('/:id', authMiddleware, async (req, res) => {
   try {
     const taskId = parseInt(req.params.id, 10);
-    const { status } = req.body;
+    const { status, ignoreReason } = req.body;
 
-    const allowedStatuses = ['NotDone', 'Running', 'Done'];
-    if (!allowedStatuses.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status. Must be NotDone, Running, or Done.' });
+    if (!ALLOWED_STATUSES.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status. Must be NotDone, Running, Done, or Ignore.' });
     }
 
-    // Confirm the task exists
+    const reason = typeof ignoreReason === 'string' ? ignoreReason.trim() : '';
+    if (status === 'Ignore' && !reason) {
+      return res.status(400).json({ error: 'Please enter a reason for ignoring this task.' });
+    }
+
     const existingTask = await prisma.sessionTask.findUnique({ where: { id: taskId } });
     if (!existingTask) {
       return res.status(404).json({ error: 'Task not found.' });
     }
 
-    // Update the task atomically, tracking who updated it and when
     const updatedTask = await prisma.sessionTask.update({
       where: { id: taskId },
       data: {
         status,
+        // Keep the reason only while the task is ignored
+        ignoreReason: status === 'Ignore' ? reason : null,
         updatedById: req.user.userId,
       },
     });
 
-    // Write an audit log entry
     await prisma.auditLog.create({
       data: {
         userId: req.user.userId,
         actionType: 'Update',
         entityName: 'SessionTask',
         entityId: taskId,
-        details: `Status changed to ${status}`,
+        details: status === 'Ignore'
+          ? `Status changed to Ignore. Reason: ${reason}`
+          : `Status changed to ${status}`,
       },
     });
 

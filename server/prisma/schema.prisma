@@ -43,6 +43,7 @@ model User {
   reportsGenerated GeneratedReport[]
   auditLogs        AuditLog[]
   fixedNotesMade   FixedNote[]
+
   @@map("users")
 }
 
@@ -158,6 +159,7 @@ enum TaskStatus {
   NotDone
   Running
   Done
+  Ignore
 }
 
 model SessionTask {
@@ -171,9 +173,10 @@ model SessionTask {
   tempTaskId Int?           @map("temp_task_id")
   tempTask   TemporaryTask? @relation(fields: [tempTaskId], references: [id])
 
-  taskTitle String     @map("task_title")
-  taskType  TaskType   @map("task_type")
-  status    TaskStatus @default(NotDone)
+  taskTitle    String     @map("task_title")
+  taskType     TaskType   @map("task_type")
+  status       TaskStatus @default(NotDone)
+  ignoreReason String?    @map("ignore_reason")
 
   updatedById Int      @map("updated_by")
   updatedBy   User     @relation("UpdatedBy", fields: [updatedById], references: [id])

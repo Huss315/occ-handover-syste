@@ -136,7 +136,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deleting the note.' });
   }
 });
-const SHIFT_ORDER = ['Morning', 'Evening', 'Night'];
+const SHIFT_ORDER = ['Morning', 'Afternoon', 'Night'];
 
 // POST /api/notes/:id/carry-forward — copies this note to the next shift in the daily cycle
 router.post('/:id/carry-forward', authMiddleware, async (req, res) => {

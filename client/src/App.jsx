@@ -9,6 +9,7 @@ import HistoricalSearchPage from './pages/HistoricalSearchPage';
 import AdminDashboardPage from './pages/AdminDashboardPage';
 import NotesPage from './pages/NotesPage';
 import TempTasksPage from './pages/TempTasksPage';
+import ThemeToggle from './components/ThemeToggle';
 
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth();
@@ -95,6 +96,7 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
+        <ThemeToggle />
       </AuthProvider>
     </BrowserRouter>
   );

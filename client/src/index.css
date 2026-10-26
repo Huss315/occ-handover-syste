@@ -1,7 +1,10 @@
 /* ============================================
    OCC Handover System — Design Tokens
+   NIGHT (dark) is the base; DAY (light) overrides it below
    ============================================ */
 :root {
+  color-scheme: dark;
+
   /* Surfaces */
   --bg: #0a0d10;
   --surface: #12171b;
@@ -27,6 +30,8 @@
   --status-running-dim: rgba(242, 184, 75, 0.14);
   --status-notdone: #e85d5d;
   --status-notdone-dim: rgba(232, 93, 93, 0.14);
+  --status-ignore: #a78bfa;
+  --status-ignore-dim: rgba(167, 139, 250, 0.16);
 
   --danger: #e85d5d;
   --danger-hover: #f27575;
@@ -44,6 +49,40 @@
   --space-4: 16px;
   --space-5: 24px;
   --space-6: 32px;
+}
+
+/* ============================================
+   DAY (light) theme
+   ============================================ */
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --bg: #f3f5f8;
+  --surface: #ffffff;
+  --surface-raised: #f7f9fb;
+  --surface-hover: #eef2f6;
+  --border: #e1e7ed;
+  --border-strong: #cdd6df;
+
+  --text-primary: #15212b;
+  --text-secondary: #4d5c68;
+  --text-muted: #8795a1;
+
+  --accent: #0b74b8;
+  --accent-hover: #095f97;
+  --accent-dim: rgba(11, 116, 184, 0.10);
+
+  --status-done: #13804f;
+  --status-done-dim: rgba(19, 128, 79, 0.12);
+  --status-running: #a96a10;
+  --status-running-dim: rgba(169, 106, 16, 0.13);
+  --status-notdone: #c53333;
+  --status-notdone-dim: rgba(197, 51, 51, 0.11);
+  --status-ignore: #6b4fc4;
+  --status-ignore-dim: rgba(107, 79, 196, 0.12);
+
+  --danger: #c53333;
+  --danger-hover: #a92a2a;
 }
 
 * { box-sizing: border-box; }
@@ -171,6 +210,15 @@ a:hover { color: var(--accent-hover); }
 
 .card h3 { margin-bottom: var(--space-3); }
 
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+.card-head h3 { margin: 0; }
+
 /* ============================================
    Auth screen (Login)
    ============================================ */
@@ -203,6 +251,13 @@ a:hover { color: var(--accent-hover); }
 .auth-card h1 {
   font-size: 22px;
   margin-bottom: var(--space-5);
+}
+
+/* Soft shadow on white so cards don't blend into the page */
+:root[data-theme="light"] .card,
+:root[data-theme="light"] .shift-banner,
+:root[data-theme="light"] .auth-card {
+  box-shadow: 0 1px 3px rgba(20, 33, 43, 0.06), 0 1px 2px rgba(20, 33, 43, 0.04);
 }
 
 /* ============================================
@@ -253,6 +308,23 @@ input:focus, select:focus, textarea:focus {
 
 textarea { resize: vertical; min-height: 80px; font-family: var(--font-sans); }
 
+/* Date picker: whole field clickable, calendar icon visible in both themes */
+input[type="date"] {
+  cursor: pointer;
+  min-height: 42px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  opacity: 1;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  background: var(--surface-hover);
+}
+
 /* ============================================
    Buttons
    ============================================ */
@@ -296,6 +368,12 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .btn-danger:hover { background: var(--danger-hover); border-color: var(--danger-hover); }
 
+/* White text on the darker Day-theme buttons */
+:root[data-theme="light"] .btn-primary,
+:root[data-theme="light"] .btn-danger {
+  color: #ffffff;
+}
+
 .btn-ghost {
   background: transparent;
   border-color: var(--border);
@@ -303,12 +381,33 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 }
 .btn-ghost:hover { color: var(--text-primary); border-color: var(--border-strong); }
 
+.btn-small {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .btn-full { width: 100%; }
 
 .btn-row {
   display: flex;
   gap: var(--space-2);
   flex-wrap: wrap;
+}
+
+/* ============================================
+   Day / Night toggle
+   ============================================ */
+.theme-toggle {
+  position: fixed;
+  right: var(--space-4);
+  bottom: var(--space-4);
+  z-index: 900;
+  border-radius: 999px;
+  padding: 10px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  color: var(--text-primary);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
 }
 
 /* ============================================
@@ -350,6 +449,13 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .led-notdone { background: var(--status-notdone); color: var(--status-notdone); }
 .led-running { background: var(--status-running); color: var(--status-running); }
 .led-done { background: var(--status-done); color: var(--status-done); }
+.led-ignore { background: var(--status-ignore); color: var(--status-ignore); }
+
+.ignore-reason {
+  font-size: 12px;
+  color: var(--status-ignore);
+  margin-top: 2px;
+}
 
 select.status-select {
   width: auto;
@@ -357,6 +463,58 @@ select.status-select {
   font-size: 12px;
   font-family: var(--font-mono);
 }
+
+/* ============================================
+   Status buttons
+   ============================================ */
+.status-buttons {
+  display: inline-flex;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.status-btn {
+  border: none;
+  border-right: 1px solid var(--border-strong);
+  border-radius: 0;
+  background: var(--surface-raised);
+  color: var(--text-secondary);
+  padding: 8px 14px;
+  font-size: 12px;
+}
+.status-btn:last-child { border-right: none; }
+.status-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
+
+.status-btn.active-notdone { background: var(--status-notdone-dim); color: var(--status-notdone); font-weight: 600; }
+.status-btn.active-running { background: var(--status-running-dim); color: var(--status-running); font-weight: 600; }
+.status-btn.active-done { background: var(--status-done-dim); color: var(--status-done); font-weight: 600; }
+.status-btn.active-ignore { background: var(--status-ignore-dim); color: var(--status-ignore); font-weight: 600; }
+
+/* ============================================
+   Fixed notes — bigger and clearer
+   ============================================ */
+.fixed-notes-card {
+  border-left: 4px solid var(--status-running);
+}
+
+.fixed-notes-card h3 {
+  font-size: 14px;
+  color: var(--status-running);
+}
+
+.fixed-note-item {
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--text-primary);
+  background: var(--status-running-dim);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+.fixed-note-item:last-child { margin-bottom: 0; }
 
 /* ============================================
    Badges / pills
@@ -405,13 +563,16 @@ select.status-select {
   z-index: 1000;
   padding: var(--space-4);
 }
+:root[data-theme="light"] .modal-overlay {
+  background: rgba(20, 33, 43, 0.35);
+}
 
 .modal-card {
   background: var(--surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
   padding: var(--space-5);
-  max-width: 380px;
+  max-width: 420px;
   width: 100%;
   text-align: center;
 }
@@ -423,6 +584,8 @@ select.status-select {
   letter-spacing: normal;
   margin-bottom: var(--space-2);
 }
+
+.modal-card .field { text-align: left; }
 
 /* ============================================
    Toast
@@ -440,11 +603,11 @@ select.status-select {
   font-family: var(--font-mono);
   font-size: 13px;
   z-index: 1100;
-  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
   border: 1px solid;
 }
-.toast-success { background: var(--status-done-dim); color: var(--status-done); border-color: var(--status-done); }
-.toast-error { background: var(--status-notdone-dim); color: var(--status-notdone); border-color: var(--status-notdone); }
+.toast-success { background: var(--surface); color: var(--status-done); border-color: var(--status-done); }
+.toast-error { background: var(--surface); color: var(--status-notdone); border-color: var(--status-notdone); }
 
 .toast button {
   background: none;
@@ -483,9 +646,10 @@ select.status-select {
    ============================================ */
 .menu-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: var(--space-3);
 }
+
 .login-logo {
   height: 64px;
   width: auto;
@@ -503,52 +667,6 @@ select.status-select {
   width: auto;
   border-radius: 4px;
 }
-
-/* ============================================
-   Responsive
-   ============================================ */
-@media (max-width: 640px) {
-  .grid-2 { grid-template-columns: 1fr; }
-  .page { padding: var(--space-4); }
-  .page-header { flex-direction: column; align-items: flex-start; }
-  .menu-grid { grid-template-columns: 1fr; }
-  .status-row { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
-  .status-row select { width: 100%; }
-  .btn-row { flex-direction: column; }
-  .btn-row button { width: 100%; }
-  .auth-card { padding: var(--space-5) var(--space-4); }
-}
-
-/* Respect reduced motion */
-@media (prefers-reduced-motion: reduce) {
-  * { transition: none !important; animation: none !important; }
-}
-
-/* ============================================
-   Status buttons (replaces dropdown)
-   ============================================ */
-.status-buttons {
-  display: inline-flex;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius);
-  overflow: hidden;
-}
-
-.status-btn {
-  border: none;
-  border-right: 1px solid var(--border-strong);
-  border-radius: 0;
-  background: var(--surface-raised);
-  color: var(--text-secondary);
-  padding: 8px 14px;
-  font-size: 12px;
-}
-.status-btn:last-child { border-right: none; }
-.status-btn:hover { background: var(--surface-hover); color: var(--text-primary); }
-
-.status-btn.active-notdone { background: var(--status-notdone-dim); color: var(--status-notdone); font-weight: 600; }
-.status-btn.active-running { background: var(--status-running-dim); color: var(--status-running); font-weight: 600; }
-.status-btn.active-done { background: var(--status-done-dim); color: var(--status-done); font-weight: 600; }
 
 /* ============================================
    Shift banner (Dashboard)
@@ -599,9 +717,27 @@ select.status-select {
   background: var(--accent-dim);
 }
 
+/* ============================================
+   Responsive
+   ============================================ */
 @media (max-width: 640px) {
+  .grid-2 { grid-template-columns: 1fr; }
+  .page { padding: var(--space-4); padding-bottom: 80px; }
+  .page-header { flex-direction: column; align-items: flex-start; }
+  .menu-grid { grid-template-columns: 1fr; }
+  .status-row { flex-direction: column; align-items: flex-start; gap: var(--space-2); }
+  .status-row select { width: 100%; }
+  .btn-row { flex-direction: column; }
+  .btn-row button { width: 100%; }
+  .auth-card { padding: var(--space-5) var(--space-4); }
   .shift-banner { grid-template-columns: 1fr; padding: var(--space-4); }
   .shift-banner-name { font-size: 26px; }
   .status-buttons { width: 100%; }
-  .status-btn { flex: 1; padding: 10px 6px; }
+  .status-btn { flex: 1; padding: 10px 4px; }
+  .fixed-note-item { font-size: 16px; }
+}
+
+/* Respect reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
 }
