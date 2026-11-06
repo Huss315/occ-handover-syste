@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   getUsers, createUser, deactivateUser,
-  getFixedTasks, createFixedTask, deactivateFixedTask,
-  getFixedNotes, createFixedNote, deactivateFixedNote,
+  getFixedTasks, createFixedTask, deactivateFixedTask, deleteFixedTask,
+  getFixedNotes, createFixedNote, deactivateFixedNote, deleteFixedNote,
   getShiftsList,
   resetUserPassword,
 } from '../api/shifts';
+import ConfirmModal from '../components/ConfirmModal';
 import Toast from '../components/Toast';
 
 function AdminDashboardPage() {
@@ -25,6 +26,8 @@ function AdminDashboardPage() {
   const [newTask, setNewTask] = useState({ taskName: '', description: '', shiftId: '' });
   const [fixedNotes, setFixedNotes] = useState([]);
   const [newNote, setNewNote] = useState({ noteText: '', shiftId: '' });
+
+  const [deleteTarget, setDeleteTarget] = useState(null);
 
   const [resetTarget, setResetTarget] = useState(null);
   const [resetPassword, setResetPassword] = useState('');
@@ -65,6 +68,25 @@ function AdminDashboardPage() {
   async function handleDeactivateNote(id) {
     try { await deactivateFixedNote(id); setToast({ message: 'Fixed note deactivated.', type: 'success' }); loadNotes(); }
     catch { setError('Failed to deactivate fixed note.'); }
+  }
+
+  async function confirmDelete() {
+    const { kind, id } = deleteTarget;
+    setDeleteTarget(null);
+    setError('');
+    try {
+      if (kind === 'task') {
+        await deleteFixedTask(id);
+        setToast({ message: 'Fixed task deleted.', type: 'success' });
+        loadTasks();
+      } else {
+        await deleteFixedNote(id);
+        setToast({ message: 'Fixed note deleted.', type: 'success' });
+        loadNotes();
+      }
+    } catch (err) {
+      setError(err.response?.data?.error || `Failed to delete fixed ${kind}.`);
+    }
   }
 
   async function handleCreateUser(e) {
@@ -211,7 +233,9 @@ function AdminDashboardPage() {
             {fixedTasks.map((t) => (
               <div className="list-row" key={t.id}>
                 <span>{t.taskName} <span className="readout">· {t.shift.name}</span> {!t.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
-                {t.isActive && <button className="btn-danger" onClick={() => handleDeactivateTask(t.id)}>Deactivate</button>}
+                {t.isActive
+                  ? <button className="btn-danger" onClick={() => handleDeactivateTask(t.id)}>Deactivate</button>
+                  : <button className="btn-danger" onClick={() => setDeleteTarget({ kind: 'task', id: t.id, label: t.taskName })}>Delete</button>}
               </div>
             ))}
           </div>
@@ -244,11 +268,24 @@ function AdminDashboardPage() {
             {fixedNotes.map((n) => (
               <div className="list-row" key={n.id}>
                 <span>{n.noteText} <span className="readout">· {n.shift.name}</span> {!n.isActive && <span className="badge badge-inactive">Inactive</span>}</span>
-                {n.isActive && <button className="btn-danger" onClick={() => handleDeactivateNote(n.id)}>Deactivate</button>}
+                {n.isActive
+                  ? <button className="btn-danger" onClick={() => handleDeactivateNote(n.id)}>Deactivate</button>
+                  : <button className="btn-danger" onClick={() => setDeleteTarget({ kind: 'note', id: n.id, label: n.noteText })}>Delete</button>}
               </div>
             ))}
           </div>
         </>
+      )}
+
+      {deleteTarget && (
+        <ConfirmModal
+          title={deleteTarget.kind === 'task' ? 'Delete Fixed Task' : 'Delete Fixed Note'}
+          message={`Permanently delete "${deleteTarget.label}"? This cannot be undone.`}
+          confirmLabel="Yes, Delete"
+          cancelLabel="Cancel"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       )}
 
       {resetTarget && (

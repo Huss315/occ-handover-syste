@@ -1,17 +1,18 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
+const { SHIFT_ORDER, getListCutoffDate, sortScheduledItems } = require('../lib/shiftClock');
 
 const router = express.Router();
 
-// GET /api/notes — all notes, any authenticated user
+// GET /api/notes — notes from the last 3 days onward, any authenticated user
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const notes = await prisma.handoverNote.findMany({
+      where: { targetDate: { gte: getListCutoffDate() } },
       include: { targetShift: true, createdBy: { select: { fullName: true } } },
-      orderBy: { targetDate: 'asc' },
     });
-    res.json({ notes });
+    res.json({ notes: sortScheduledItems(notes) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong fetching notes.' });
@@ -136,8 +137,6 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deleting the note.' });
   }
 });
-const SHIFT_ORDER = ['Morning', 'Afternoon', 'Night'];
-
 // POST /api/notes/:id/carry-forward — copies this note to the next shift in the daily cycle
 router.post('/:id/carry-forward', authMiddleware, async (req, res) => {
   try {

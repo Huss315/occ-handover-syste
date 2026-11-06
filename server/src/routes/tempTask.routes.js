@@ -1,17 +1,18 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
+const { getListCutoffDate, sortScheduledItems } = require('../lib/shiftClock');
 
 const router = express.Router();
 
-// GET /api/temp-tasks — all temp tasks, any authenticated user
+// GET /api/temp-tasks — temp tasks from the last 3 days onward, any authenticated user
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const tempTasks = await prisma.temporaryTask.findMany({
+      where: { targetDate: { gte: getListCutoffDate() } },
       include: { targetShift: true, createdBy: { select: { fullName: true } } },
-      orderBy: { targetDate: 'asc' },
     });
-    res.json({ tempTasks });
+    res.json({ tempTasks: sortScheduledItems(tempTasks) });
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong fetching temporary tasks.' });

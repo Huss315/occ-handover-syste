@@ -83,9 +83,12 @@ function TempTasksPage() {
           <div className="list-row" key={t.id}>
             <div>
               <div>{t.taskTitle}</div>
-              <div className="readout">
-                {new Date(t.targetDate).toLocaleDateString(undefined, { timeZone: 'UTC' })} · {t.targetShift?.name}
-                {t.isDelivered && <span className="badge badge-inactive" style={{ marginLeft: 8 }}>Delivered</span>}
+              <div className="item-meta">
+                <span className="item-when">
+                  {new Date(t.targetDate).toLocaleDateString('en-GB', { timeZone: 'UTC' })} · {t.targetShift?.name}
+                </span>
+                {t.createdBy?.fullName && <span className="item-by">Added by {t.createdBy.fullName}</span>}
+                {t.isDelivered && <span className="badge badge-inactive">Delivered</span>}
               </div>
             </div>
             {!t.isDelivered ? (

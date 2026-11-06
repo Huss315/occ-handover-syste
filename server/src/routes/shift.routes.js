@@ -1,10 +1,40 @@
 const express = require('express');
 const prisma = require('../lib/prisma');
 const authMiddleware = require('../middleware/auth.middleware');
+const { getCurrentSlot, isCurrentSlot } = require('../lib/shiftClock');
 
 const router = express.Router();
 
 const MAX_EMPLOYEES = 4;
+const START_SHIFT_LOCK_ID = 727001;
+
+// The oldest shift that has not been ended yet, if there is one
+function findActiveSession(db) {
+  return db.shiftSession.findFirst({
+    where: { status: 'Started' },
+    orderBy: { startedAt: 'asc' },
+    include: {
+      shift: true,
+      startedBy: { select: { fullName: true } },
+      employees: { include: { user: { select: { fullName: true } } } },
+      tasks: { select: { status: true } },
+    },
+  });
+}
+
+function summarizeActiveSession(session, slot) {
+  if (!session) return null;
+  return {
+    id: session.id,
+    shiftName: session.shift.name,
+    shiftDate: session.shiftDate.toISOString().split('T')[0],
+    startedAt: session.startedAt,
+    startedBy: session.startedBy.fullName,
+    employees: session.employees.map((e) => e.user.fullName),
+    openTasks: session.tasks.filter((t) => t.status === 'NotDone' || t.status === 'Running').length,
+    isCurrentShift: isCurrentSlot(session, session.shift.name, slot),
+  };
+}
 
 // GET /api/shifts/list — ordered Morning, Afternoon, Night
 router.get('/list', authMiddleware, async (req, res) => {
@@ -14,6 +44,38 @@ router.get('/list', authMiddleware, async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong fetching shifts.' });
+  }
+});
+
+// GET /api/shifts/current — the shift that is on right now, worked out from the clock
+router.get('/current', authMiddleware, async (req, res) => {
+  try {
+    const slot = getCurrentSlot();
+    const shift = await prisma.shift.findUnique({ where: { name: slot.shiftName } });
+    if (!shift) {
+      return res.status(500).json({ error: `Shift "${slot.shiftName}" is not configured.` });
+    }
+
+    const [slotSession, activeSession] = await Promise.all([
+      prisma.shiftSession.findFirst({
+        where: { shiftId: shift.id, shiftDate: slot.shiftDate },
+        orderBy: { startedAt: 'desc' },
+        select: { id: true, status: true },
+      }),
+      findActiveSession(prisma),
+    ]);
+
+    res.json({
+      shift: { id: shift.id, name: shift.name },
+      shiftDate: slot.dateStr,
+      startsAt: slot.startsAt,
+      next: { name: slot.nextShiftName, startsAt: slot.nextStartsAt },
+      slotSession,
+      activeSession: summarizeActiveSession(activeSession, slot),
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong loading the current shift.' });
   }
 });
 
@@ -101,92 +163,117 @@ router.get('/:sessionId', authMiddleware, async (req, res) => {
   }
 });
 
-// POST /api/shifts/start
+// POST /api/shifts/start — the shift and date come from the clock, not from the client
+// Body: { employeeIds: [1, 2] }
 router.post('/start', authMiddleware, async (req, res) => {
   try {
     if (req.user.role === 'Admin') {
       return res.status(403).json({ error: 'Admin accounts cannot start shifts. Please use a staff account.' });
     }
 
-    const { shiftId, employeeIds } = req.body;
+    const { employeeIds } = req.body;
 
-    if (!shiftId || !employeeIds || employeeIds.length < 1) {
-      return res.status(400).json({ error: 'shiftId and at least one employee are required.' });
+    if (!employeeIds || employeeIds.length < 1) {
+      return res.status(400).json({ error: 'At least one employee is required.' });
     }
     if (employeeIds.length > MAX_EMPLOYEES) {
       return res.status(400).json({ error: `A shift can have at most ${MAX_EMPLOYEES} employees.` });
     }
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    const slot = getCurrentSlot();
+    const today = slot.shiftDate;
 
-    const [existing, fixedTasks, fixedNotes, dueNotes, dueTempTasks, lastSession] = await Promise.all([
-      prisma.shiftSession.findFirst({ where: { shiftId, shiftDate: today } }),
-      prisma.fixedTask.findMany({ where: { shiftId, isActive: true } }),
-      prisma.fixedNote.findMany({ where: { shiftId, isActive: true } }),
-      prisma.handoverNote.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } }),
-      prisma.temporaryTask.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } }),
-      prisma.shiftSession.findFirst({
+    const result = await prisma.$transaction(async (tx) => {
+      // One start at a time, so two people pressing Start cannot both get through
+      await tx.$executeRawUnsafe(`SELECT pg_advisory_xact_lock(${START_SHIFT_LOCK_ID})`);
+
+      const shift = await tx.shift.findUnique({ where: { name: slot.shiftName } });
+      if (!shift) {
+        return { status: 500, body: { error: `Shift "${slot.shiftName}" is not configured.` } };
+      }
+      const shiftId = shift.id;
+
+      const active = await findActiveSession(tx);
+      if (active) {
+        const activeSession = summarizeActiveSession(active, slot);
+        if (activeSession.isCurrentShift) {
+          return {
+            status: 400,
+            body: { error: `The ${shift.name} shift is already running. Ask someone on it to add you.` },
+          };
+        }
+        return {
+          status: 409,
+          body: { code: 'PREVIOUS_SHIFT_ACTIVE', error: 'The previous shift has not been ended.', activeSession },
+        };
+      }
+
+      const existing = await tx.shiftSession.findFirst({ where: { shiftId, shiftDate: today } });
+      if (existing) {
+        return {
+          status: 400,
+          body: { error: `The ${shift.name} shift has already been completed. The ${slot.nextShiftName} shift opens at ${slot.nextStartsAt}.` },
+        };
+      }
+
+      const fixedTasks = await tx.fixedTask.findMany({ where: { shiftId, isActive: true } });
+      const fixedNotes = await tx.fixedNote.findMany({ where: { shiftId, isActive: true } });
+      const dueNotes = await tx.handoverNote.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } });
+      const dueTempTasks = await tx.temporaryTask.findMany({ where: { targetDate: today, targetShiftId: shiftId, isDelivered: false } });
+      const lastSession = await tx.shiftSession.findFirst({
         where: { status: 'Ended' },
         orderBy: { endedAt: 'desc' },
         include: { tasks: { where: { status: { in: ['Running', 'NotDone'] } } } },
-      }),
-    ]);
+      });
 
-    if (existing) {
-      const msg = existing.status === 'Started'
-        ? 'A shift session for this date and shift is already active.'
-        : 'A shift session for this date and shift has already been completed today.';
-      return res.status(400).json({ error: msg });
-    }
+      const session = await tx.shiftSession.create({
+        data: {
+          shiftId,
+          shiftDate: today,
+          startedById: req.user.userId,
+          status: 'Started',
+          employees: { create: employeeIds.map((userId) => ({ userId })) },
+        },
+        include: { employees: { include: { user: true } } },
+      });
 
-    const session = await prisma.shiftSession.create({
-      data: {
-        shiftId,
-        shiftDate: today,
-        startedById: req.user.userId,
-        status: 'Started',
-        employees: { create: employeeIds.map((userId) => ({ userId })) },
-      },
-      include: { employees: { include: { user: true } } },
-    });
+      const allSessionTasksData = [
+        ...fixedTasks.map((task) => ({
+          sessionId: session.id, fixedTaskId: task.id, taskTitle: task.taskName,
+          taskType: 'Fixed', status: 'NotDone', updatedById: req.user.userId,
+        })),
+        ...(lastSession
+          ? lastSession.tasks.map((oldTask) => ({
+              sessionId: session.id, taskTitle: oldTask.taskTitle, taskType: 'CarryForward',
+              status: oldTask.status, updatedById: req.user.userId, sourceSessionTaskId: oldTask.id,
+            }))
+          : []),
+        ...dueTempTasks.map((tempTask) => ({
+          sessionId: session.id, tempTaskId: tempTask.id, taskTitle: tempTask.taskTitle,
+          taskType: 'Temporary', status: 'NotDone', updatedById: req.user.userId,
+        })),
+      ];
 
-    const allSessionTasksData = [
-      ...fixedTasks.map((task) => ({
-        sessionId: session.id, fixedTaskId: task.id, taskTitle: task.taskName,
-        taskType: 'Fixed', status: 'NotDone', updatedById: req.user.userId,
-      })),
-      ...(lastSession
-        ? lastSession.tasks.map((oldTask) => ({
-            sessionId: session.id, taskTitle: oldTask.taskTitle, taskType: 'CarryForward',
-            status: oldTask.status, updatedById: req.user.userId, sourceSessionTaskId: oldTask.id,
-          }))
-        : []),
-      ...dueTempTasks.map((tempTask) => ({
-        sessionId: session.id, tempTaskId: tempTask.id, taskTitle: tempTask.taskTitle,
-        taskType: 'Temporary', status: 'NotDone', updatedById: req.user.userId,
-      })),
-    ];
+      if (allSessionTasksData.length > 0) {
+        await tx.sessionTask.createMany({ data: allSessionTasksData });
+      }
+      if (dueNotes.length > 0) {
+        await tx.handoverNote.updateMany({
+          where: { id: { in: dueNotes.map((n) => n.id) } }, data: { isDelivered: true },
+        });
+      }
+      if (dueTempTasks.length > 0) {
+        await tx.temporaryTask.updateMany({
+          where: { id: { in: dueTempTasks.map((t) => t.id) } }, data: { isDelivered: true },
+        });
+      }
 
-    const remainingWrites = [];
-    if (allSessionTasksData.length > 0) {
-      remainingWrites.push(prisma.sessionTask.createMany({ data: allSessionTasksData }));
-    }
-    if (dueNotes.length > 0) {
-      remainingWrites.push(prisma.handoverNote.updateMany({
-        where: { id: { in: dueNotes.map((n) => n.id) } }, data: { isDelivered: true },
-      }));
-    }
-    if (dueTempTasks.length > 0) {
-      remainingWrites.push(prisma.temporaryTask.updateMany({
-        where: { id: { in: dueTempTasks.map((t) => t.id) } }, data: { isDelivered: true },
-      }));
-    }
-    await Promise.all(remainingWrites);
+      const tasks = await tx.sessionTask.findMany({ where: { sessionId: session.id } });
 
-    const tasks = await prisma.sessionTask.findMany({ where: { sessionId: session.id } });
+      return { status: 201, body: { session, tasks, dueNotes, fixedNotes } };
+    }, { timeout: 20000, maxWait: 10000 });
 
-    res.status(201).json({ session, tasks, dueNotes, fixedNotes });
+    res.status(result.status).json(result.body);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong starting the shift.' });
@@ -287,7 +374,9 @@ router.post('/:sessionId/end', authMiddleware, async (req, res) => {
     if (session.status === 'Ended') return res.status(400).json({ error: 'This shift has already ended.' });
 
     const isEmployeeOfShift = session.employees.some((e) => e.userId === req.user.userId);
-    if (!isEmployeeOfShift) {
+    // Anyone on staff may close a shift whose time has passed, so the next shift is not stuck
+    const isOverdue = !isCurrentSlot(session, session.shift.name);
+    if (!isEmployeeOfShift && !isOverdue) {
       return res.status(403).json({ error: 'Only employees in this shift can end it.' });
     }
 
@@ -338,7 +427,7 @@ ${notesForThisShift.map((n) => `- ${n.noteText}`).join('\n') || 'None'}
     });
 
     await prisma.auditLog.create({
-      data: { userId: req.user.userId, actionType: 'EndShift', entityName: 'ShiftSession', entityId: session.id, details: 'Shift ended and report generated.' },
+      data: { userId: req.user.userId, actionType: 'EndShift', entityName: 'ShiftSession', entityId: session.id, details: isEmployeeOfShift ? 'Shift ended and report generated.' : 'Previous shift closed by the next employee and report generated.' },
     });
 
     res.json({ session: endedSession, report });

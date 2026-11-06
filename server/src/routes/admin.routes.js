@@ -258,6 +258,36 @@ router.patch('/fixed-tasks/:id/deactivate', async (req, res) => {
     res.status(500).json({ error: 'Something went wrong deactivating the fixed task.' });
   }
 });
+// DELETE /api/admin/fixed-tasks/:id — only once deactivated.
+// Past shifts keep their own copy of the task title, so history is not affected.
+router.delete('/fixed-tasks/:id', async (req, res) => {
+  try {
+    const taskId = parseInt(req.params.id, 10);
+    const task = await prisma.fixedTask.findUnique({ where: { id: taskId } });
+    if (!task) return res.status(404).json({ error: 'Fixed task not found.' });
+    if (task.isActive) {
+      return res.status(400).json({ error: 'Deactivate this task before deleting it.' });
+    }
+
+    await prisma.fixedTask.delete({ where: { id: taskId } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'Delete',
+        entityName: 'FixedTask',
+        entityId: taskId,
+        details: `Deleted fixed task "${task.taskName}"`,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong deleting the fixed task.' });
+  }
+});
+
 // POST /api/admin/fixed-notes
 router.post('/fixed-notes', async (req, res) => {
   try {
@@ -301,6 +331,35 @@ router.patch('/fixed-notes/:id/deactivate', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Something went wrong deactivating the fixed note.' });
+  }
+});
+
+// DELETE /api/admin/fixed-notes/:id — only once deactivated
+router.delete('/fixed-notes/:id', async (req, res) => {
+  try {
+    const noteId = parseInt(req.params.id, 10);
+    const note = await prisma.fixedNote.findUnique({ where: { id: noteId } });
+    if (!note) return res.status(404).json({ error: 'Fixed note not found.' });
+    if (note.isActive) {
+      return res.status(400).json({ error: 'Deactivate this note before deleting it.' });
+    }
+
+    await prisma.fixedNote.delete({ where: { id: noteId } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: req.user.userId,
+        actionType: 'Delete',
+        entityName: 'FixedNote',
+        entityId: noteId,
+        details: `Deleted fixed note "${note.noteText}"`,
+      },
+    });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Something went wrong deleting the fixed note.' });
   }
 });
 

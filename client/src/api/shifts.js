@@ -25,8 +25,13 @@ export async function getPreviousShift() {
   return res.data;
 }
 
-export async function startShift(shiftId, employeeIds) {
-  const res = await apiClient.post('/shifts/start', { shiftId, employeeIds });
+export async function getCurrentShift() {
+  const res = await apiClient.get('/shifts/current');
+  return res.data;
+}
+
+export async function startShift(employeeIds) {
+  const res = await apiClient.post('/shifts/start', { employeeIds });
   return res.data;
 }
 export async function updateTaskStatus(taskId, status, ignoreReason) {
@@ -47,8 +52,8 @@ export async function createNote(noteText, targetDate, targetShiftId) {
   return res.data.note;
 }
 
-export async function createTempTask(taskTitle, description, targetDate, targetShiftId) {
-  const res = await apiClient.post('/temp-tasks', { taskTitle, description, targetDate, targetShiftId });
+export async function createTempTask(taskTitle, targetDate, targetShiftId) {
+  const res = await apiClient.post('/temp-tasks', { taskTitle, targetDate, targetShiftId });
   return res.data.tempTask;
 }
 export async function searchReport(date, shiftId) {
@@ -84,6 +89,10 @@ export async function deactivateFixedTask(taskId) {
   const res = await apiClient.patch(`/admin/fixed-tasks/${taskId}/deactivate`);
   return res.data.fixedTask;
 }
+export async function deleteFixedTask(taskId) {
+  await apiClient.delete(`/admin/fixed-tasks/${taskId}`);
+}
+
 export async function getFixedNotes() {
   const res = await apiClient.get('/admin/fixed-notes');
   return res.data.fixedNotes;
@@ -98,6 +107,10 @@ export async function deactivateFixedNote(id) {
   const res = await apiClient.patch(`/admin/fixed-notes/${id}/deactivate`);
   return res.data.fixedNote;
 }
+export async function deleteFixedNote(id) {
+  await apiClient.delete(`/admin/fixed-notes/${id}`);
+}
+
 export async function getMyActiveShift() {
   const res = await apiClient.get('/shifts/my-active');
   return res.data.activeSession;

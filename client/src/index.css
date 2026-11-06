@@ -517,6 +517,136 @@ select.status-select {
 .fixed-note-item:last-child { margin-bottom: 0; }
 
 /* ============================================
+   Shift notes — same look as fixed notes, in red
+   ============================================ */
+.notes-card {
+  border-left: 4px solid var(--status-notdone);
+}
+
+.notes-card h3 {
+  font-size: 14px;
+  color: var(--status-notdone);
+}
+
+.note-item {
+  background: var(--status-notdone-dim);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 10px;
+}
+.note-item:last-child { margin-bottom: 0; }
+
+.note-item-text {
+  font-size: 17px;
+  line-height: 1.55;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.note-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.note-item-actions .btn-carry {
+  color: var(--text-primary);
+  border-color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ============================================
+   Login — Sign In button splits into the two boxes
+   ============================================ */
+.login-split { position: relative; }
+
+.login-boxes {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 26px;
+}
+.login-boxes input { min-width: 0; width: 100%; }
+
+.login-open-button {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 180px;
+  margin-left: -90px;
+}
+
+.login-split-canvas {
+  position: absolute;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.login-error { margin: 12px 0 0; }
+.login-submit { margin-top: 16px; }
+
+/* Boxes come in under the splitting button */
+.login-boxes,
+.login-submit { transition: opacity 0.3s ease 0.4s; }
+.login-closed .login-boxes,
+.login-closed .login-submit {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login-boxes,
+  .login-submit { transition: none; }
+}
+
+/* ============================================
+   Notes / temp task lists — date, shift, author
+   ============================================ */
+.item-meta {
+  display: flex;
+  align-items: center;
+  gap: 4px 12px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+
+.item-when {
+  font-family: var(--font-mono);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.item-by {
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
+/* ============================================
+   Shift start — current shift and popup details
+   ============================================ */
+.current-shift .shift-banner-name { margin: 4px 0 6px; }
+
+.shift-state-message {
+  margin: 16px 0 0;
+  color: var(--text-secondary);
+}
+
+.shift-details {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 14px;
+  margin: 16px 0 0;
+  text-align: left;
+}
+.shift-details dt { color: var(--text-secondary); }
+.shift-details dd { margin: 0; font-weight: 500; overflow-wrap: anywhere; }
+
+/* ============================================
    Badges / pills
    ============================================ */
 .badge {

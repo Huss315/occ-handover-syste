@@ -325,6 +325,37 @@ function DashboardPage() {
             </div>
           )}
 
+          <div className="card notes-card">
+            <div className="card-head">
+              <h3>Notes</h3>
+              <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId } })}>+ Add</button>
+            </div>
+            {notes.length === 0 && <p>No notes for this shift.</p>}
+            {notes.map((n) => (
+              <div className="note-item" key={n.id}>
+                <div className="note-item-text">{n.noteText}</div>
+                <div className="note-item-actions">
+                  <button className="btn-ghost btn-small btn-carry" onClick={() => handleCarryForward(n.id)}>Carry to Next Shift</button>
+                  {!n.isDelivered && (
+                    <>
+                      <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId, note: n } })}>Edit</button>
+                      <button className="btn-danger btn-small" onClick={() => setDeleteTarget(n)}>Delete</button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <h3>Temporary Tasks</h3>
+              <button className="btn-ghost btn-small" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>+ Add</button>
+            </div>
+            {tempTasks.length === 0 && <p>No temporary tasks for this shift.</p>}
+            {tempTasks.map(renderTaskRow)}
+          </div>
+
           {/* Previous shift section only appears if something was carried forward */}
           {carryForwardTasks.length > 0 && (
             <div className="card">
@@ -342,37 +373,6 @@ function DashboardPage() {
             <h3>Tasks</h3>
             {mainTasks.length === 0 && <p>No tasks for this shift.</p>}
             {mainTasks.map(renderTaskRow)}
-          </div>
-
-          <div className="card">
-            <div className="card-head">
-              <h3>Temporary Tasks</h3>
-              <button className="btn-ghost btn-small" onClick={() => navigate('/add-temp-task', { state: { sessionId } })}>+ Add</button>
-            </div>
-            {tempTasks.length === 0 && <p>No temporary tasks for this shift.</p>}
-            {tempTasks.map(renderTaskRow)}
-          </div>
-
-          <div className="card">
-            <div className="card-head">
-              <h3>Notes</h3>
-              <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId } })}>+ Add</button>
-            </div>
-            {notes.length === 0 && <p>No notes for this shift.</p>}
-            {notes.map((n) => (
-              <div className="list-row" key={n.id}>
-                <span>{n.noteText}</span>
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <button className="btn-ghost btn-small" onClick={() => handleCarryForward(n.id)}>Carry to Next Shift</button>
-                  {!n.isDelivered && (
-                    <>
-                      <button className="btn-ghost btn-small" onClick={() => navigate('/add-note', { state: { sessionId, note: n } })}>Edit</button>
-                      <button className="btn-danger btn-small" onClick={() => setDeleteTarget(n)}>Delete</button>
-                    </>
-                  )}
-                </div>
-              </div>
-            ))}
           </div>
 
           <div className="btn-row" style={{ marginTop: 24 }}>

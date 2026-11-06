@@ -29,7 +29,6 @@ function AddTempTaskPage() {
   const [targetDate, setTargetDate] = useState(editingTask ? editingTask.targetDate.split('T')[0] : '');
   const [targetShiftId, setTargetShiftId] = useState(editingTask?.targetShiftId || '');
   const [taskTitle, setTaskTitle] = useState(editingTask?.taskTitle || '');
-  const [description, setDescription] = useState(editingTask?.description || '');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -58,15 +57,14 @@ function AddTempTaskPage() {
     setSaving(true);
     try {
       if (editingTask) {
-        await updateTempTask(editingTask.id, { taskTitle, description, targetDate, targetShiftId: parseInt(targetShiftId, 10) });
+        await updateTempTask(editingTask.id, { taskTitle, targetDate, targetShiftId: parseInt(targetShiftId, 10) });
         navigate(backTo, { replace: true, state: { sessionId, flash: 'Temporary task updated successfully.' } });
         return;
       }
 
-      await createTempTask(taskTitle, description, targetDate, parseInt(targetShiftId, 10));
+      await createTempTask(taskTitle, targetDate, parseInt(targetShiftId, 10));
       // Stay on the page so another task can be added for the same date and shift
       setTaskTitle('');
-      setDescription('');
       setSavedCount((c) => c + 1);
       setToast({ message: 'Temporary task added. You can add another one.', type: 'success' });
     } catch (err) {
@@ -105,10 +103,6 @@ function AddTempTaskPage() {
         <div className="field">
           <label>Task Title</label>
           <input type="text" value={taskTitle} onChange={(e) => setTaskTitle(e.target.value)} />
-        </div>
-        <div className="field">
-          <label>Description (optional)</label>
-          <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
         </div>
 
         {error && <p className="error-text">{error}</p>}

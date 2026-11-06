@@ -83,9 +83,12 @@ function NotesPage() {
           <div className="list-row" key={n.id}>
             <div>
               <div>{n.noteText}</div>
-              <div className="readout">
-                {new Date(n.targetDate).toLocaleDateString(undefined, { timeZone: 'UTC' })} · {n.targetShift?.name}
-                {n.isDelivered && <span className="badge badge-inactive" style={{ marginLeft: 8 }}>Delivered</span>}
+              <div className="item-meta">
+                <span className="item-when">
+                  {new Date(n.targetDate).toLocaleDateString('en-GB', { timeZone: 'UTC' })} · {n.targetShift?.name}
+                </span>
+                {n.createdBy?.fullName && <span className="item-by">Added by {n.createdBy.fullName}</span>}
+                {n.isDelivered && <span className="badge badge-inactive">Delivered</span>}
               </div>
             </div>
             {!n.isDelivered ? (

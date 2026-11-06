@@ -49,7 +49,7 @@ function HistoricalSearchPage() {
       <div className="page-header">
 <div className="header-brand">
           <img src="/afs_logo.png" alt="" className="header-logo" />
-          <h1>Search Handover Reports</h1>
+          <h1>Reports</h1>
         </div>
         <div className="header-actions">
           <button className="btn-ghost" onClick={() => navigate('/shift-start')}>Back</button>
